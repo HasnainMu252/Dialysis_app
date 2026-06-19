@@ -1,0 +1,31 @@
+import express from 'express';
+import authRoutes from './authRoutes.js';
+import patientRoutes from './patientRoutes.js';
+import chairRoutes from './chairRoutes.js';
+import scheduleRoutes from './scheduleRoutes.js';
+import sessionRoutes from './sessionRoutes.js';
+import billingRoutes from './billingRoutes.js';
+import chairClearanceRoutes from './chairClearanceRoutes.js';
+import insuranceFormRoutes from './insuranceFormRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import fileRoute from './fileRoute.js';
+import insurancePersonRoutes from './insurancePersonRoutes.js';
+import doctorRoutes from './doctorRoutes.js';
+import reportRoutes from './reportRoutes.js';
+const router = express.Router();
+
+router.use('/auth', authRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/patients', patientRoutes);
+router.use('/chairs', chairRoutes);
+router.use('/schedules', scheduleRoutes);
+router.use('/sessions', sessionRoutes);
+router.use('/billing', billingRoutes);
+router.use('/insurance-forms', insuranceFormRoutes);
+router.use('/chair-clearances', chairClearanceRoutes);
+router.use('/files', fileRoute);
+router.use('/insurance-person', insurancePersonRoutes);
+router.use('/doctors', doctorRoutes);
+router.use('/reports', reportRoutes);
+
+export default router;

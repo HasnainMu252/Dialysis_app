@@ -1,0 +1,12 @@
+import express from 'express';
+import { addSoap, addVitals, checkIn, completeSession, listSessions, startSession } from '../controllers/sessionController.js';
+import { protect, authorize } from '../middleware/auth.js';
+import { ROLES } from '../utils/constants.js';
+const router=express.Router(); router.use(protect);
+router.get('/',listSessions);
+router.patch('/:id/check-in',authorize(ROLES.NURSE,ROLES.ADMIN,ROLES.TECHNICIAN),checkIn);
+router.patch('/:id/start',authorize(ROLES.NURSE,ROLES.ADMIN,ROLES.TECHNICIAN),startSession);
+router.post('/:id/vitals',authorize(ROLES.NURSE,ROLES.ADMIN,ROLES.TECHNICIAN),addVitals);
+router.post('/:id/soap',authorize(ROLES.NURSE,ROLES.ADMIN,ROLES.TECHNICIAN),addSoap);
+router.patch('/:id/complete',authorize(ROLES.NURSE,ROLES.ADMIN,ROLES.TECHNICIAN),completeSession);
+export default router;
