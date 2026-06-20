@@ -93,3 +93,40 @@ backend (Express/Mongoose).
 - The frontend was syntax-validated but not run in this environment. After
   unzipping: `npm install && npm run build` (frontend) and
   `npm install && npm run dev` (backend, after copying `.env.example` → `.env`).
+
+---
+
+## Revision 2 — role UX, reports, sessions, user management
+
+### Backend
+- **Session documents:** `documents[]` added to the session model; new
+  `POST /sessions/:id/documents` (multi-file) so nurses can attach files/photos
+  during a treatment. `createdAt` / `startedAt` / `completedAt` are recorded.
+- **Admin user management:** new `userController` + `userRoutes` (admin-only):
+  list, create-by-role, edit, **password reset**, delete.
+- **Patient Excel export:** `GET /patients/export` produces an `.xlsx` using the
+  exact column headers the bulk-upload importer reads, so the file round-trips.
+- **Monthly SOAP report** widened to the **biller** role (month-wise rounds page).
+
+### Frontend
+- **Critical fix:** the PDF/file popup now sends the auth token (`pdfViewer.jsx`),
+  fixing "can't view file" across the whole app; image mime types preserved.
+- **Sidebar → top bar** with a quick-access menu popup, a notifications popup
+  (bell), and a full-menu page at `/menu`. Notifications removed from nav.
+- **Schedule cards** redesigned (patient name on top, **bold date/time**,
+  clickable) and applied to schedule list/history and dashboards.
+- **Nurse dashboard:** today's schedule pinned on top.
+- **Social worker dashboard:** Total Schedules / Total Patients / Today /
+  This Month stats + numbered, latest-first cards (today / tomorrow / all).
+- **Doctor:** per-row **Add SOAP** button in the patient list (deep-links to the
+  Doctor Rounds tab with the form open); Add SOAP button visible in Doctor Rounds.
+- **Insurance dashboard:** removed the ≤6-month, Documents, Schedules and
+  Notifications items; Schedules removed from insurance nav.
+- **Patient list:** one-click **Export Excel** (admin / insurance / front desk /
+  biller).
+- **Biller:** new month-wise **Doctor Rounds** page with Excel export.
+- **Admin:** new **User Management** page (create, edit, reset password, delete).
+- **Reports:** clickable **month calendar** to generate the monthly SOAP report.
+- **Treatment workflow / Treatment tab:** nurses upload documents/photos during a
+  session; session **created/started/completed** times and uploaded documents are
+  shown in the patient's Treatment tab (viewable via the file popup).

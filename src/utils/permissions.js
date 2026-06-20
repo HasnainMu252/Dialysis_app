@@ -111,6 +111,7 @@ export const isTabReadOnly = (role, tabKey) =>
 export const NAV_BY_ROLE = {
   [ROLES.ADMIN]: [
     ['Admin Dashboard', '/admin', 'home'],
+    ['User Management', '/admin/users', 'users'],
     ['Patients', '/front-desk/patients', 'users'],
     ['Create Schedule', '/front-desk/scheduling', 'calendar'],
     ['Schedules', '/schedules', 'calendar'],
@@ -120,7 +121,6 @@ export const NAV_BY_ROLE = {
     ['Treatment Workflow', '/workflow', 'stethoscope'],
     ['Reports', '/reports', 'chart'],
     ['Billing Claims', '/biller/claims', 'card'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.FRONT_DESK]: [
     ['Front Desk Dashboard', '/front-desk', 'home'],
@@ -128,7 +128,6 @@ export const NAV_BY_ROLE = {
     ['Register Patient', '/patients/new', 'users'],
     ['Create Schedule', '/front-desk/scheduling', 'calendar'],
     ['Schedules', '/schedules', 'calendar'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.NURSE]: [
     ['Nurse Dashboard', '/nurse', 'home'],
@@ -136,7 +135,6 @@ export const NAV_BY_ROLE = {
     ['Sessions', '/sessions', 'stethoscope'],
     ['Treatment Workflow', '/workflow', 'activity'],
     ['Schedules', '/schedules', 'calendar'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.TECHNICIAN]: [
     ['Technician Dashboard', '/technician', 'home'],
@@ -149,29 +147,25 @@ export const NAV_BY_ROLE = {
     ['Social Worker Dashboard', '/social-worker', 'home'],
     ['Patients', '/patients', 'users'],
     ['Schedules', '/schedules', 'calendar'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.BILLER]: [
     ['Biller Dashboard', '/biller', 'home'],
     ['Patients', '/patients', 'users'],
     ['Billing Claims', '/biller/claims', 'card'],
+    ['Doctor Rounds', '/biller/doctor-rounds', 'stethoscope'],
     ['Schedules', '/schedules', 'calendar'],
     ['Reports', '/reports', 'chart'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.INSURANCE_PERSON]: [
     ['Insurance Dashboard', '/insurance', 'home'],
     ['Patients / Insurance', '/patients', 'users'],
     ['Register Patient', '/patients/new', 'users'],
-    ['Schedules', '/schedules', 'calendar'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.DOCTOR]: [
     ['Doctor Dashboard', '/doctor', 'home'],
     ['Patient Records', '/patients', 'users'],
     ['Reports', '/reports', 'chart'],
     ['Schedules', '/schedules', 'calendar'],
-    ['Notifications', '/notifications', 'bell'],
   ],
   [ROLES.PATIENT]: [
     ['Patient Dashboard', '/patient', 'home'],

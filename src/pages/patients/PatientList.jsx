@@ -7,6 +7,7 @@ import { canEditPatient } from '../../utils/permissions';
 import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
+import Pagination, { usePagedList } from '../../components/common/Pagination';
 import { personName } from '../../utils/format';
 
 const patientKey = (p) => p._id || p.id;
@@ -50,6 +51,26 @@ export default function PatientList() {
 
   const toggleOne = (p) => setSelected((prev) => ({ ...prev, [patientKey(p)]: !prev[patientKey(p)] }));
 
+  const [exporting, setExporting] = useState(false);
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const res = await patientApi.exportExcel(search ? { search } : {});
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `patients-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const uploadFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -92,6 +113,8 @@ export default function PatientList() {
   };
 
 
+  const { paged: pagedItems, page, setPage, total: pagedTotal, pageCount } = usePagedList(items, '', []);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -103,6 +126,9 @@ export default function PatientList() {
       <div className="card grid gap-3 p-4 lg:grid-cols-6">
         <input className="input lg:col-span-2" placeholder="Search by name, phone, MRN, member ID or payer" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} />
         <button className="btn-light" onClick={load} disabled={loading}>{loading ? 'Loading...' : 'Search'}</button>
+        {['admin', 'insurance_person', 'front_desk', 'biller'].includes(user?.role) && (
+          <button className="btn-light" type="button" onClick={exportExcel} disabled={exporting}>{exporting ? 'Exporting...' : 'Export Excel'}</button>
+        )}
         {allowEdit && <button className="btn-light" type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>{uploading ? 'Uploading...' : 'Bulk Excel Upload'}</button>}
         {allowEdit && <button className="btn-light" type="button" onClick={toggleAll}>{allSelected ? 'Unselect All' : 'Select All'}</button>}
         {allowEdit && <button className="btn-danger" type="button" onClick={bulkDelete} disabled={!selectedPatients.length}>Delete Selected ({selectedPatients.length})</button>}
@@ -117,7 +143,7 @@ export default function PatientList() {
             </tr>
           </thead>
           <tbody>
-            {items.map((p) => (
+            {pagedItems.map((p) => (
               <tr key={patientKey(p)} className="border-b last:border-0">
                 {allowEdit && <td className="p-3"><input type="checkbox" checked={!!selected[patientKey(p)]} onChange={() => toggleOne(p)} /></td>}
                 <td className="font-semibold">{p.mrn}</td>
@@ -126,7 +152,7 @@ export default function PatientList() {
                 <td>{p.address || '-'}</td>
                 <td>{p.insurance?.payerName || p.insurance?.providerName || '-'}<br/><span className="text-xs text-slate-500">{p.insurance?.memberId || p.insurance?.policyNumber || '-'}</span></td>
                 <td><StatusBadge status={p.insurance?.coverageStatus || p.insurance?.approvalStatus || 'not_submitted'} /></td>
-                <td className="space-x-2 whitespace-nowrap"><Link className="font-medium text-blue-600" to={user?.role === 'doctor' ? `/doctor/patients/${p._id}` : `/patients/${p.mrn || p._id}`}>{allowEdit ? 'View/Edit' : 'View'}</Link>{allowEdit && <button className="text-red-600" onClick={() => deleteOne(p)}>Delete</button>}</td>
+                <td className="space-x-3 whitespace-nowrap"><Link className="font-medium text-blue-600" to={user?.role === 'doctor' ? `/doctor/patients/${p._id}` : `/patients/${p.mrn || p._id}`}>{allowEdit ? 'View/Edit' : 'View'}</Link>{user?.role === 'doctor' && <Link className="font-bold text-emerald-600" to={`/doctor/patients/${p._id}?tab=doctor%20rounds&addRound=1`}>Add SOAP</Link>}{allowEdit && <button className="text-red-600" onClick={() => deleteOne(p)}>Delete</button>}</td>
               </tr>
             ))}
           </tbody>
@@ -134,24 +160,20 @@ export default function PatientList() {
       </div>
 
       <div className="space-y-3 md:hidden">
-        {items.map((p) => (
+        {pagedItems.map((p) => (
           <div className="card p-4" key={patientKey(p)}>
             <div className="flex justify-between gap-3">
               <div className="flex gap-3">{allowEdit && <input type="checkbox" checked={!!selected[patientKey(p)]} onChange={() => toggleOne(p)} />}<div><b>{personName(p)}</b><p className="text-xs text-slate-500">{p.mrn} • {p.phone}</p></div></div>
               <StatusBadge status={p.insurance?.coverageStatus || p.insurance?.approvalStatus || 'not_submitted'} />
             </div>
             <p className="mt-2 text-sm text-slate-600">{p.address || 'No address'} • {p.insurance?.payerName || p.insurance?.providerName || 'No payer'}</p>
-            <div className="mt-3 flex gap-3"><Link className="font-medium text-blue-600" to={user?.role === 'doctor' ? `/doctor/patients/${p._id}` : `/patients/${p.mrn || p._id}`}>{allowEdit ? 'View/Edit' : 'View'}</Link>{allowEdit && <button className="text-red-600" onClick={() => deleteOne(p)}>Delete</button>}</div>
+            <div className="mt-3 flex flex-wrap gap-3"><Link className="font-medium text-blue-600" to={user?.role === 'doctor' ? `/doctor/patients/${p._id}` : `/patients/${p.mrn || p._id}`}>{allowEdit ? 'View/Edit' : 'View'}</Link>{user?.role === 'doctor' && <Link className="font-bold text-emerald-600" to={`/doctor/patients/${p._id}?tab=doctor%20rounds&addRound=1`}>Add SOAP</Link>}{allowEdit && <button className="text-red-600" onClick={() => deleteOne(p)}>Delete</button>}</div>
           </div>
         ))}
       </div>
       {!items.length && !loading && <EmptyState message="No patients found" />}
 
-      {!!items.length && (
-        <p className="px-1 text-sm font-medium text-slate-500">
-          Showing {items.length} of {total} patient{total === 1 ? '' : 's'}
-        </p>
-      )}
+      <Pagination page={page} pageCount={pageCount} total={pagedTotal} onPage={setPage} label="patients" />
     </div>
   );
 }

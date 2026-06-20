@@ -109,14 +109,26 @@ export default function DashboardReports() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">Monthly SOAP Report</h2>
-              <p className="text-sm text-slate-500">Doctor checkup completion per patient for the selected month (x/{soap?.totalRounds || 4} rounds).</p>
+              <p className="text-sm text-slate-500">Click a month to generate the report (x/{soap?.totalRounds || 4} rounds per patient).</p>
             </div>
             <div className="flex flex-wrap items-end gap-2">
-              <div><label className="label">Month</label><input className="input" type="number" min="1" max="12" value={month} onChange={(e) => setMonth(Number(e.target.value))} /></div>
               <div><label className="label">Year</label><input className="input" type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} /></div>
               <button className="btn-light" onClick={loadSoap} disabled={soapLoading}>{soapLoading ? 'Loading...' : 'Apply'}</button>
               <button className="btn-primary inline-flex items-center gap-2" onClick={downloadSoapExcel} disabled={downloading}><Download size={16} />{downloading ? 'Preparing...' : 'Export Excel'}</button>
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((label, i) => (
+              <button
+                key={label}
+                onClick={() => setMonth(i + 1)}
+                className={`rounded-2xl border p-4 text-center text-sm font-bold transition ${month === i + 1 ? 'border-blue-600 bg-blue-600 text-white shadow-lg' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50'}`}
+              >
+                {label}
+                <span className="mt-1 block text-[10px] font-medium opacity-70">{year}</span>
+              </button>
+            ))}
           </div>
 
           {soap && (

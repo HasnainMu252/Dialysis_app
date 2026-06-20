@@ -28,10 +28,13 @@ function PdfViewer({ apiUrl, downloadUrl, name }) {
     xhr.open('GET', apiUrl, true);
     xhr.responseType = 'blob';
     xhr.setRequestHeader('Accept', 'application/pdf');
+    // ✅ The file route is authenticated — send the bearer token like every other request.
+    const token = localStorage.getItem('token');
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
     xhr.onload = () => {
       if (xhr.status === 200) {
-        const blob = new Blob([xhr.response], { type: 'application/pdf' });
+        const blob = xhr.response instanceof Blob ? xhr.response : new Blob([xhr.response], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         blobRef.current = url;
         setBlobUrl(url);

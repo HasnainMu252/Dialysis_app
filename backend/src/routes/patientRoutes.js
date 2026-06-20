@@ -9,6 +9,7 @@ import {
   listPatients,
   sendToBiller,
   updatePatient,
+  exportPatients,
 } from '../controllers/patientController.js';
 import { uploadExcel } from '../middleware/uploadExcel.js';
 import { protect, authorize } from '../middleware/auth.js';
@@ -49,6 +50,7 @@ router.get('/', authorize(...PERMISSIONS.patientReadAll), listPatients);
 router.post('/', authorize(...PERMISSIONS.patientWrite), validate(patientSchema), createPatient);
 router.post('/bulk-upload', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), uploadExcel.single('file'), bulkUploadPatients);
 router.delete('/bulk-delete', authorize(...PERMISSIONS.patientDelete), bulkDeletePatients);
+router.get('/export', authorize(...PERMISSIONS.patientReadAll), exportPatients);
 router.get('/:id', authorize(...PERMISSIONS.patientReadAll, ROLES.PATIENT), findPatient);
 router.patch('/:id', authorize(...PERMISSIONS.patientWrite), validate(patientUpdateSchema), updatePatient);
 router.patch('/:id/send-to-biller', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), sendToBiller);

@@ -7,8 +7,12 @@ import { billingApi } from '../../api/billingApi';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
 import PatientJourneyPanel from '../../components/common/PatientJourneyPanel';
-import StatusBadge from '../../components/ui/StatusBadge';
-import { dateOnly, money, personName } from '../../utils/format';
+import ScheduleCard from '../../components/common/ScheduleCard';
+import StatCard from '../../components/ui/StatCard';
+import { CalendarDays, CalendarRange, Users, CalendarCheck } from 'lucide-react';
+
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const isSameDay = (a, b) => startOfDay(a).getTime() === startOfDay(b).getTime();
 
 export default function SocialWorkerDashboard() {
   const [patients, setPatients] = useState([]);
@@ -28,19 +32,68 @@ export default function SocialWorkerDashboard() {
   };
   useEffect(() => { load(); }, []);
 
-  const scheduledPatients = useMemo(() => patients.filter((p) => schedules.some((s) => s.patientMrn === p.mrn)), [patients, schedules]);
+  const today = useMemo(() => new Date(), []);
+  const tomorrow = useMemo(() => { const t = new Date(); t.setDate(t.getDate() + 1); return t; }, []);
+
+  // Most recent first
+  const sortedSchedules = useMemo(
+    () => [...schedules].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)),
+    [schedules]
+  );
+  const todaySchedules = useMemo(() => schedules.filter((s) => s.date && isSameDay(s.date, today)), [schedules, today]);
+  const tomorrowSchedules = useMemo(() => schedules.filter((s) => s.date && isSameDay(s.date, tomorrow)), [schedules, tomorrow]);
+  const monthSchedules = useMemo(
+    () => schedules.filter((s) => { if (!s.date) return false; const d = new Date(s.date); return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear(); }),
+    [schedules, today]
+  );
+
+  const patientByMrn = (mrn) => patients.find((p) => p.mrn === mrn);
   const patientSchedules = (p) => schedules.filter((s) => s.patientMrn === p.mrn);
   const patientSessions = (p) => sessions.filter((s) => (s.patient?._id || s.patient) === p._id || s.patient?.mrn === p.mrn);
   const patientClaims = (p) => claims.filter((c) => (c.patient?._id || c.patient) === p._id || c.patient?.mrn === p.mrn);
-  const paymentStatus = (p) => {
-    const list = patientClaims(p);
-    if (!list.length) return 'unpaid';
-    if (list.some((c) => c.status === 'paid')) return 'paid';
-    return list[0].status || 'pending';
-  };
+  const openSchedule = (s) => { const p = patientByMrn(s.patientMrn); if (p) setSelected(p); };
 
-  return <div className="space-y-5"><PageHeader title="Social Worker Dashboard" subtitle="Scheduled patients with bio data, phone, address, payment status and treatment history for travel/support assistance." />
-    <div className="grid gap-4 md:grid-cols-4"><div className="card p-4"><p className="text-xs text-slate-500">Scheduled Patients</p><p className="text-2xl font-bold">{scheduledPatients.length}</p></div><div className="card p-4"><p className="text-xs text-slate-500">Paid</p><p className="text-2xl font-bold">{scheduledPatients.filter((p) => paymentStatus(p) === 'paid').length}</p></div><div className="card p-4"><p className="text-xs text-slate-500">Unpaid/Pending</p><p className="text-2xl font-bold">{scheduledPatients.filter((p) => paymentStatus(p) !== 'paid').length}</p></div><div className="card p-4"><p className="text-xs text-slate-500">Sessions</p><p className="text-2xl font-bold">{sessions.length}</p></div></div>
-    <div className="grid gap-5 xl:grid-cols-3"><section className="space-y-3 xl:col-span-1">{scheduledPatients.map((p) => { const next = patientSchedules(p)[0]; const claimsForPatient = patientClaims(p); return <button key={p._id} onClick={() => setSelected(p)} className={`card w-full p-4 text-left transition ${selected?._id === p._id ? 'ring-2 ring-blue-500' : ''}`}><div className="flex items-start justify-between gap-2"><div><b>{personName(p)}</b><p className="text-xs text-slate-500">{p.mrn} • {p.phone}</p><p className="text-xs text-slate-500">{p.address || 'No address'}</p></div><StatusBadge status={paymentStatus(p)} /></div><div className="mt-2 text-xs text-slate-500">Next: {next ? `${dateOnly(next.date)} ${next.startTime}-${next.endTime} Chair ${next.chair?.code || '-'}` : 'No schedule'}</div><div className="text-xs text-slate-500">Claims: {claimsForPatient.length} • Rs {money(claimsForPatient.reduce((a, c) => a + Number(c.amount || 0), 0))}</div></button>; })}{!scheduledPatients.length && <EmptyState message="No scheduled patients found" />}</section><section className="xl:col-span-2">{selected ? <PatientJourneyPanel patient={selected} schedules={patientSchedules(selected)} sessions={patientSessions(selected)} claims={patientClaims(selected)} /> : <EmptyState message="Click a patient to view bio data, schedules and previous sessions." />}</section></div>
-  </div>;
+  const renderCards = (list) => (
+    <div className="grid gap-3 md:grid-cols-2">
+      {list.map((s, i) => <ScheduleCard key={s.id || s.code} schedule={s} index={i + 1} onClick={() => openSchedule(s)} />)}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Social Worker Dashboard" subtitle="Schedules, patient counts and support overview for travel/assistance coordination." />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Schedules" value={schedules.length} icon={CalendarDays} />
+        <StatCard title="Total Patients" value={patients.length} icon={Users} />
+        <StatCard title="Today's Schedule" value={todaySchedules.length} icon={CalendarCheck} />
+        <StatCard title="This Month's Schedule" value={monthSchedules.length} icon={CalendarRange} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-3">
+        <div className="space-y-5 xl:col-span-2">
+          <section className="card space-y-3 p-5">
+            <div className="flex items-center justify-between"><h2 className="text-lg font-extrabold text-slate-900">Today</h2><span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{todaySchedules.length}</span></div>
+            {todaySchedules.length ? renderCards(todaySchedules) : <EmptyState message="No schedules today" />}
+          </section>
+
+          <section className="card space-y-3 p-5">
+            <div className="flex items-center justify-between"><h2 className="text-lg font-extrabold text-slate-900">Tomorrow</h2><span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{tomorrowSchedules.length}</span></div>
+            {tomorrowSchedules.length ? renderCards(tomorrowSchedules) : <EmptyState message="No schedules tomorrow" />}
+          </section>
+
+          <section className="card space-y-3 p-5">
+            <h2 className="text-lg font-extrabold text-slate-900">All Schedules (latest first)</h2>
+            {sortedSchedules.length ? renderCards(sortedSchedules.slice(0, 30)) : <EmptyState message="No schedules found" />}
+          </section>
+        </div>
+
+        <section className="xl:col-span-1">
+          {selected
+            ? <PatientJourneyPanel patient={selected} schedules={patientSchedules(selected)} sessions={patientSessions(selected)} claims={patientClaims(selected)} />
+            : <EmptyState message="Click a schedule card to view that patient's bio, schedules and sessions." />}
+        </section>
+      </div>
+    </div>
+  );
 }

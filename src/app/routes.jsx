@@ -11,6 +11,8 @@ import NurseDashboard from '../pages/nurse/NurseDashboard';
 import TechnicianDashboard from '../pages/technician/TechnicianDashboard';
 import SocialWorkerDashboard from '../pages/socialWorker/SocialWorkerDashboard';
 import BillerDashboard from '../pages/biller/BillerDashboard';
+import BillerDoctorRounds from '../pages/biller/BillerDoctorRounds';
+import UserManagement from '../pages/admin/UserManagement';
 import InsuranceDashboard from '../pages/insurance/InsuranceDashboard';
 import PatientDashboard from '../pages/patient/PatientDashboard';
 import PatientList from '../pages/patients/PatientList';
@@ -24,6 +26,7 @@ import SessionList from '../pages/sessions/SessionList';
 import Claims from '../pages/billing/Claims';
 import TreatmentWorkflow from '../pages/workflow/TreatmentWorkflow';
 import DashboardReports from '../pages/reports/DashboardReports';
+import MenuPage from '../pages/menu/MenuPage';
 import Notifications from '../pages/notifications/Notifications';
 import DoctorDashboard from '../pages/doctor/DoctorDashboard';
 
@@ -56,9 +59,11 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<HomeRedirect />} />
+          <Route path="/menu" element={<MenuPage />} />
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN]} />}>
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<UserManagement />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR]} />}>
@@ -104,6 +109,7 @@ export default function AppRoutes() {
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER]} />}>
             <Route path="/biller" element={<BillerDashboard />} />
             <Route path="/biller/claims" element={<Claims />} />
+            <Route path="/biller/doctor-rounds" element={<BillerDoctorRounds />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.INSURANCE_PERSON]} />}>

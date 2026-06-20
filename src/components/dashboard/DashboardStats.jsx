@@ -6,33 +6,39 @@ import { chairApi } from '../../api/chairApi';
 import { scheduleApi } from '../../api/scheduleApi';
 import { sessionApi } from '../../api/sessionApi';
 import { billingApi } from '../../api/billingApi';
+import { useAuth } from '../../context/AuthContext';
 
 const arr = (payload, key) => payload?.[key] || payload?.data || [];
 const safeCount = (payload, key) => payload?.count ?? arr(payload, key).length ?? 0;
 
 export default function DashboardStats({ title, subtitle, accent = 'admin' }) {
+  const { user } = useAuth();
+  const canBilling = ['admin', 'biller'].includes(user?.role);
+
   const [stats, setStats] = useState({ patients: '--', chairs: '--', schedules: '--', sessions: '--', claims: '--' });
   const [raw, setRaw] = useState({ schedules: [], sessions: [], claims: [] });
   const [loading, setLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
-    Promise.allSettled([
+    // Only request billing claims for roles allowed to see them (avoids 403 noise).
+    const calls = [
       patientApi.list(),
       chairApi.list(),
       scheduleApi.list(),
       sessionApi.list(),
-      billingApi.listClaims(),
-    ]).then((results) => {
+      canBilling ? billingApi.listClaims() : Promise.resolve(null),
+    ];
+    Promise.allSettled(calls).then((results) => {
       const schedules = results[2].status === 'fulfilled' ? arr(results[2].value.data, 'schedules') : [];
       const sessions = results[3].status === 'fulfilled' ? arr(results[3].value.data, 'data') : [];
-      const claims = results[4].status === 'fulfilled' ? arr(results[4].value.data, 'data') : [];
+      const claims = canBilling && results[4].status === 'fulfilled' && results[4].value ? arr(results[4].value.data, 'data') : [];
       setStats({
         patients: results[0].status === 'fulfilled' ? safeCount(results[0].value.data, 'data') : '--',
         chairs: results[1].status === 'fulfilled' ? safeCount(results[1].value.data, 'data') : '--',
         schedules: results[2].status === 'fulfilled' ? safeCount(results[2].value.data, 'schedules') : '--',
         sessions: results[3].status === 'fulfilled' ? safeCount(results[3].value.data, 'data') : '--',
-        claims: results[4].status === 'fulfilled' ? safeCount(results[4].value.data, 'data') : '--',
+        claims: canBilling && results[4].status === 'fulfilled' && results[4].value ? safeCount(results[4].value.data, 'data') : '--',
       });
       setRaw({ schedules, sessions, claims });
     }).finally(() => setLoading(false));

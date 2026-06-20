@@ -97,6 +97,20 @@ const sessionSchema = new mongoose.Schema(
     vitals: [vitalsSchema],
     soapNotes: [soapSchema],
 
+    documents: [
+      new mongoose.Schema(
+        {
+          name: String,
+          fileUrl: { type: String, required: true },
+          mimeType: String,
+          notes: String,
+          uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+        { _id: true }
+      ),
+    ],
+
     treatmentSummary: String,
     sentToBillerAt: Date,
   },

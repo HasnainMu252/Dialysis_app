@@ -298,3 +298,78 @@ export const getInsuranceFormByPatient = asyncHandler(async (req, res) => {
 });
 
 export const findPatient = getPatient;
+
+/**
+ * GET /api/v1/patients/export
+ * One-click Excel export of all patients, using the SAME column headers the
+ * bulk-upload importer reads, so the file can be re-uploaded unchanged.
+ */
+export const exportPatients = asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  const query = {};
+  if (search) {
+    query.$or = [
+      { firstName: new RegExp(search, 'i') },
+      { lastName: new RegExp(search, 'i') },
+      { mrn: new RegExp(search, 'i') },
+      { phone: new RegExp(search, 'i') },
+    ];
+  }
+
+  const patients = await Patient.find(query).sort({ createdAt: -1 }).lean();
+  const fmtDate = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+
+  const rows = patients.map((p) => {
+    const m = p.medicalHistory || {};
+    const i = p.insurance || {};
+    const e = p.emergencyContact || {};
+    return {
+      MRN: p.mrn || '',
+      'Patient Name': `${p.firstName || ''} ${p.lastName || ''}`.trim(),
+      'First Name': p.firstName || '',
+      'Last Name': p.lastName || '',
+      DOB: fmtDate(p.dob),
+      Gender: p.gender || '',
+      Phone: p.phone || '',
+      Email: p.email || '',
+      Address: p.address || '',
+      'Referral Source': p.referralSource || '',
+      'Emergency Contact Name': e.name || '',
+      'Emergency Contact Relation': e.relation || '',
+      'Emergency Contact Phone': e.phone || '',
+      Diagnosis: m.diagnosis || '',
+      'Dialysis Frequency': m.dialysisFrequency || '',
+      Allergies: (m.allergies || []).join(', '),
+      'Access Type': m.accessType || '',
+      'Medical Notes': m.notes || '',
+      'Provider Name': i.providerName || '',
+      'Insurance / Payer': i.payerName || '',
+      'Policy Number': i.policyNumber || '',
+      'Group Number': i.groupNumber || '',
+      'Member ID': i.memberId || '',
+      'Coverage Status': i.coverageStatus || i.approvalStatus || 'not_submitted',
+      'Insurance Expiry Date': fmtDate(i.approvalValidTo),
+      'Plan Type': i.planType || '',
+      'IPA / Medical Group': i.ipaMedicalGroup || '',
+      'PCP Name': i.pcpName || '',
+      'Dialysis Coverage': i.dialysisCoverage || '',
+      'Authorization Required': i.authorizationRequired ? 'true' : 'false',
+      'Transportation Benefits': i.transportationBenefits || '',
+      Deductible: i.deductible || '',
+      Coinsurance: i.coinsurance || '',
+      'OOP Max': i.oopMax || '',
+      'Care Coordination Flags': (i.careCoordinationFlags || []).join(', '),
+      'Source File': i.sourceFile || '',
+      Status: p.status || 'active',
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Patients');
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="patients-export-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+  res.send(buffer);
+});

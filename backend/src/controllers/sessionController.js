@@ -206,3 +206,32 @@ export const completeSession = asyncHandler(async (req, res) => {
     data: session,
   });
 });
+export const uploadSessionDocuments = asyncHandler(async (req, res) => {
+  const session = await DialysisSession.findById(req.params.id);
+  if (!session) {
+    throw new ApiError(404, 'Session not found');
+  }
+
+  const files = req.files || [];
+  if (!files.length) {
+    throw new ApiError(400, 'No files uploaded');
+  }
+
+  const docs = files.map((file) => ({
+    name: req.body.name || file.originalname,
+    fileUrl: `/uploads/session-documents/${file.filename}`,
+    mimeType: file.mimetype,
+    notes: req.body.notes || '',
+    uploadedBy: req.user?._id,
+    uploadedAt: new Date(),
+  }));
+
+  session.documents.push(...docs);
+  await session.save();
+
+  res.status(201).json({
+    success: true,
+    message: `${docs.length} document(s) uploaded`,
+    data: session.documents,
+  });
+});

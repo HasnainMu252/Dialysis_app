@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, RefreshCw, X } from 'lucide-react';
 
@@ -17,6 +17,8 @@ import PatientBioPanel from '../../components/common/PatientBioPanel';
 import EmptyState from '../../components/common/EmptyState';
 import InsuranceFormPanel from '../../components/common/InsuranceFormPanel';
 import PatientFormPreview from '../../components/common/PatientFormPreview';
+import PdfViewer from '../../components/common/pdfViewer';
+import { API_BASE_URL } from '../../constants';
 
 import {
   TextField,
@@ -208,23 +210,63 @@ const toEditable = (patient, insuranceForm) => ({
     : { ...emptyInsuranceFormShape },
 });
 
-const SessionHistoryCard = ({ session }) => (
-  <div className="card p-4 text-sm">
-    <div className="flex justify-between gap-2">
-      <div>
-        <b>{dateOnly(session.completedAt || session.createdAt)}</b>
-        <p className="text-xs text-slate-500">Session {session._id}</p>
+const toFileApiUrl = (url = '') => {
+  const match = String(url).match(/\/uploads\/(.+)/);
+  return match ? `${API_BASE_URL}/files/${match[1]}` : '';
+};
+
+const SessionHistoryCard = ({ session }) => {
+  const [viewDoc, setViewDoc] = useState(null);
+  const docs = session.documents || [];
+  const ts = (d) => (d ? new Date(d).toLocaleString() : '—');
+  return (
+    <div className="card p-4 text-sm">
+      <div className="flex justify-between gap-2">
+        <div>
+          <b>{dateOnly(session.completedAt || session.createdAt)}</b>
+          <p className="text-xs text-slate-500">Session {session._id}</p>
+        </div>
+        <StatusBadge status={session.status} />
       </div>
-      <StatusBadge status={session.status} />
+
+      <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-3">
+        <span>Created: <b className="text-slate-700">{ts(session.createdAt)}</b></span>
+        <span>Started: <b className="text-slate-700">{ts(session.startedAt)}</b></span>
+        <span>Completed: <b className="text-slate-700">{ts(session.completedAt)}</b></span>
+      </div>
+
+      <p className="mt-2 text-slate-700">{session.treatmentSummary || 'No treatment summary yet'}</p>
+
+      {!!(session.vitals?.length || session.soapNotes?.length) && (
+        <p className="mt-1 text-xs text-slate-500">{session.vitals?.length || 0} vitals • {session.soapNotes?.length || 0} SOAP notes</p>
+      )}
+
+      {!!docs.length && (
+        <div className="mt-3 border-t pt-3">
+          <p className="mb-2 text-xs font-bold uppercase text-slate-400">Documents ({docs.length})</p>
+          <div className="flex flex-wrap gap-2">
+            {docs.map((d, i) => (
+              <button key={i} className="btn-light text-xs" onClick={() => setViewDoc(d)}>{d.name || `Document ${i + 1}`}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setViewDoc(null)}>
+          <div className="h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-4 py-2"><b className="text-sm">{viewDoc.name || 'Document'}</b><button onClick={() => setViewDoc(null)}><X size={18} /></button></div>
+            <div className="h-[calc(80vh-44px)]"><PdfViewer apiUrl={toFileApiUrl(viewDoc.fileUrl)} downloadUrl={toFileApiUrl(viewDoc.fileUrl)} name={viewDoc.name} /></div>
+          </div>
+        </div>
+      )}
     </div>
-    <p className="mt-2 text-slate-700">
-      {session.treatmentSummary || 'No treatment summary yet'}
-    </p>
-  </div>
-);
+  );
+};
 
 export default function PatientDetails() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
   const allowEdit = canEditPatient(user?.role);
@@ -244,7 +286,7 @@ export default function PatientDetails() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
   const [previewMode, setPreviewMode] = useState(false);
 
   const [addingDocs, setAddingDocs] = useState(false);
@@ -270,7 +312,7 @@ export default function PatientDetails() {
     documentName: '',
     documentNotes: '',
   };
-  const [showRoundForm, setShowRoundForm] = useState(false);
+  const [showRoundForm, setShowRoundForm] = useState(searchParams.get('addRound') === '1');
   const [savingRound, setSavingRound] = useState(false);
   const [roundForm, setRoundForm] = useState(emptyRound);
 

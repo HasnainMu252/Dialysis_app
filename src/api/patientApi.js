@@ -6,6 +6,7 @@ export const patientApi = {
   get: (id) => api.get(`/patients/${id}`),
   update: (id, data) => api.patch(`/patients/${id}`, data),
   sendToBiller: (id) => api.patch(`/patients/${id}/send-to-biller`),
+  exportExcel: (params) => api.get('/patients/export', { params, responseType: 'blob' }),
   delete: (id) => api.delete(`/patients/${id}`),
   bulkDelete: (data) => api.delete('/patients/bulk-delete', { data }),
  

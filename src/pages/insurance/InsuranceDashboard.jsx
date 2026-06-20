@@ -86,20 +86,16 @@ export default function InsuranceDashboard() {
   return <div className="space-y-5">
     <DashboardStats title="Insurance Person Dashboard" subtitle="Register patients, update insurance forms, upload documents and track expiry duties." accent="insurance" />
 
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard title="Total Patients" value={counts.totalPatients} icon={Users} />
       <StatCard title="Expired" value={counts.expired} icon={FileWarning} />
       <StatCard title="≤ 15 Days" value={counts.critical15Days} icon={Bell} />
       <StatCard title="≤ 1 Month" value={counts.oneMonth} icon={CalendarClock} />
-      <StatCard title="≤ 6 Months" value={counts.sixMonths} icon={CheckCircle2} />
-      <StatCard title="Documents" value={counts.documents} icon={Bell} />
     </div>
 
-    <div className="grid gap-4 md:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2">
       <Link className="card block p-5 transition hover:ring-2 hover:ring-blue-500" to="/patients/new"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><UserPlus /></div><h3 className="font-bold">Register New Patient</h3><p className="text-sm text-slate-500">Open the full registration, insurance and documents flow.</p></Link>
-      <Link className="card block p-5 transition hover:ring-2 hover:ring-blue-500" to="/patients"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><Users /></div><h3 className="font-bold">Patients / Insurance Forms</h3><p className="text-sm text-slate-500">Edit patient bio, insurance details and documents.</p></Link>
-      <Link className="card block p-5 transition hover:ring-2 hover:ring-blue-500" to="/schedules"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><CalendarDays /></div><h3 className="font-bold">Schedules View Only</h3><p className="text-sm text-slate-500">View patient schedules without create/edit access.</p></Link>
-      <Link className="card block p-5 transition hover:ring-2 hover:ring-blue-500" to="/notifications"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Bell /></div><h3 className="font-bold">Notifications</h3><p className="text-sm text-slate-500">Review 15-day expiry reminders and alerts.</p></Link>
+      <Link className="card block p-5 transition hover:ring-2 hover:ring-blue-500" to="/patients"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><Users /></div><h3 className="font-bold">Patients / Insurance Forms</h3><p className="text-sm text-slate-500">Edit patient bio, insurance details, documents and export the patient list.</p></Link>
     </div>
 
     <section className="card p-4 sm:p-5">

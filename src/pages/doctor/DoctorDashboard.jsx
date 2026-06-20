@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, CheckCircle2, ClipboardList, Search, Stethosco
 import PageHeader from '../../components/common/PageHeader';
 import Loading from '../../components/common/Loading';
 import EmptyState from '../../components/common/EmptyState';
+import Pagination, { usePagedList } from '../../components/common/Pagination';
 import StatCard from '../../components/ui/StatCard';
 import { doctorApi } from '../../api/doctorApi';
 import { personName } from '../../utils/format';
@@ -84,6 +85,8 @@ export default function DoctorDashboard() {
   }), [rows]);
 
   const pendingRows = filteredRows.filter((row) => row.completedCount < 4);
+  const pendingPage = usePagedList(pendingRows, '', []);
+  const allPage = usePagedList(filteredRows, '', []);
 
   if (loading) return <Loading label="Loading doctor dashboard..." />;
 
@@ -128,24 +131,25 @@ export default function DoctorDashboard() {
           <p className="text-sm text-slate-500">Open a patient to add SOAP notes and upload clinical documents.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr><th className="p-3">Patient</th><th>MRN</th><th>Phone</th><th>Completed</th><th>Missing</th><th>Action</th></tr>
+              <tr><th className="p-3">Patient</th><th className="p-3">MRN</th><th className="p-3">Phone</th><th className="p-3">Completed</th><th className="p-3">Missing</th><th className="p-3 text-right">Action</th></tr>
             </thead>
             <tbody>
-              {pendingRows.map(({ patient, completedRounds, missingRounds }) => (
-                <tr key={patient._id} className="border-t border-slate-100">
-                  <td className="p-3 font-bold text-slate-900">{personName(patient)}</td>
-                  <td>{patient.mrn || '-'}</td>
-                  <td>{patient.phone || '-'}</td>
-                  <td><span className="rounded-full bg-blue-50 px-3 py-1 font-black text-blue-700">{completedRounds.length}/4</span></td>
-                  <td><span className="rounded-full bg-red-50 px-3 py-1 font-black text-red-700">Round {missingRounds.join(', ')}</span></td>
-                  <td><Link className="btn-primary py-2 text-xs" to={`/doctor/patients/${patient._id}`}>Open Checkup</Link></td>
+              {pendingPage.paged.map(({ patient, completedRounds, missingRounds }) => (
+                <tr key={patient._id} className="border-t border-slate-100 align-middle">
+                  <td className="whitespace-nowrap p-3 font-bold text-slate-900">{personName(patient)}</td>
+                  <td className="whitespace-nowrap p-3 text-slate-600">{patient.mrn || '-'}</td>
+                  <td className="whitespace-nowrap p-3 text-slate-600">{patient.phone || '-'}</td>
+                  <td className="whitespace-nowrap p-3"><span className="rounded-lg bg-blue-50 px-2.5 py-1 font-bold text-blue-700">{completedRounds.length}/4</span></td>
+                  <td className="whitespace-nowrap p-3"><span className="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">Round {missingRounds.join(', ')}</span></td>
+                  <td className="whitespace-nowrap p-3 text-right"><Link className="inline-flex rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700" to={`/doctor/patients/${patient._id}?tab=doctor%20rounds&addRound=1`}>Open / Add SOAP</Link></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <div className="px-4 pb-3"><Pagination page={pendingPage.page} pageCount={pendingPage.pageCount} total={pendingPage.total} onPage={pendingPage.setPage} label="pending patients" /></div>
         {!pendingRows.length && <div className="p-4"><EmptyState message="All patients completed 4/4 rounds for selected month." /></div>}
       </section>
 
@@ -154,7 +158,7 @@ export default function DoctorDashboard() {
           <h2 className="text-lg font-extrabold text-slate-900">All Doctor Patient List</h2>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredRows.map(({ patient, completedRounds, missingRounds }) => (
+          {allPage.paged.map(({ patient, completedRounds, missingRounds }) => (
             <Link key={patient._id} to={`/doctor/patients/${patient._id}`} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg">
               <div className="flex items-start justify-between gap-3">
                 <div><h3 className="font-black text-slate-900">{personName(patient)}</h3><p className="text-xs font-bold text-slate-500">{patient.mrn || 'No MRN'} • {patient.phone || 'No phone'}</p></div>
@@ -165,6 +169,7 @@ export default function DoctorDashboard() {
             </Link>
           ))}
         </div>
+        <div className="px-4 pb-4"><Pagination page={allPage.page} pageCount={allPage.pageCount} total={allPage.total} onPage={allPage.setPage} label="patients" /></div>
       </section>
     </div>
   );
