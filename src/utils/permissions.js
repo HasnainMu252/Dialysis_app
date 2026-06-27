@@ -60,12 +60,13 @@ export const PATIENT_TAB_LABELS = {
   treatment: 'Treatment History',
   'doctor rounds': 'Doctor Rounds',
   claims: 'Claims',
+  cqi: 'CQI',
 };
 
 const TABS_BY_ROLE = {
   [ROLES.ADMIN]: [
     'overview', 'full profile', 'insurance form', 'documents',
-    'schedules', 'sessions', 'claims', 'treatment', 'doctor rounds',
+    'schedules', 'sessions', 'claims', 'treatment', 'doctor rounds', 'cqi',
   ],
   [ROLES.INSURANCE_PERSON]: [
     'overview', 'full profile', 'insurance form', 'documents',
@@ -80,7 +81,7 @@ const TABS_BY_ROLE = {
   ],
   [ROLES.DOCTOR]: [
     'overview', 'full profile', 'medical history', 'doctor rounds',
-    'documents', 'schedules', 'treatment',
+    'cqi', 'documents', 'schedules', 'treatment',
   ],
   [ROLES.NURSE]: [
     'overview', 'medical history', 'schedules', 'sessions', 'treatment',
@@ -119,6 +120,11 @@ export const NAV_BY_ROLE = {
     ['Chair Maintenance', '/technician/maintenance', 'wrench'],
     ['Sessions', '/sessions', 'activity'],
     ['Treatment Workflow', '/workflow', 'stethoscope'],
+    ['Batch Monthly Round', '/doctor/batch-round', 'stethoscope'],
+    ['Batch Edit', '/doctor/batch-edit', 'activity'],
+    ['CQI', '/doctor/cqi', 'chart'],
+    ['Physician Billing', '/biller/physician-billing', 'card'],
+    ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
     ['Reports', '/reports', 'chart'],
     ['Billing Claims', '/biller/claims', 'card'],
   ],
@@ -153,6 +159,8 @@ export const NAV_BY_ROLE = {
     ['Patients', '/patients', 'users'],
     ['Billing Claims', '/biller/claims', 'card'],
     ['Doctor Rounds', '/biller/doctor-rounds', 'stethoscope'],
+    ['Physician Billing', '/biller/physician-billing', 'card'],
+    ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
     ['Schedules', '/schedules', 'calendar'],
     ['Reports', '/reports', 'chart'],
   ],
@@ -164,6 +172,9 @@ export const NAV_BY_ROLE = {
   [ROLES.DOCTOR]: [
     ['Doctor Dashboard', '/doctor', 'home'],
     ['Patient Records', '/patients', 'users'],
+    ['Batch Monthly Round', '/doctor/batch-round', 'stethoscope'],
+    ['Batch Edit', '/doctor/batch-edit', 'activity'],
+    ['CQI', '/doctor/cqi', 'chart'],
     ['Reports', '/reports', 'chart'],
     ['Schedules', '/schedules', 'calendar'],
   ],

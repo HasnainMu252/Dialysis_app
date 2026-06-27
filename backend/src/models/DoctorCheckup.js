@@ -87,6 +87,51 @@ const doctorCheckupSchema = new mongoose.Schema(
 
     vitals: vitalsSchema,
     soap: soapSchema,
+
+    // ---- Doctor Module V2: structured monthly physician round ----
+    // Flexible structured sections (checkbox/dropdown values sent from the form).
+    physicianRound: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
+    // Multi-disciplinary comments
+    doctorComments: { type: String, trim: true },
+    socialWorkerComments: { type: String, trim: true },
+    dietitianComments: { type: String, trim: true },
+
+    // CQI tracking
+    cqi: {
+      patient: { type: String, trim: true, default: '' },
+      social: { type: String, trim: true, default: '' },
+      dietitian: { type: String, trim: true, default: '' },
+    },
+
+    templateUsed: { type: String, trim: true },
+
+    // Biller approval workflow
+    approval: {
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending',
+        index: true,
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      reviewedAt: Date,
+      history: [
+        new mongoose.Schema(
+          {
+            status: String,
+            note: String,
+            by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            at: { type: Date, default: Date.now },
+          },
+          { _id: true }
+        ),
+      ],
+    },
+
     nextFollowUpDate: Date,
 
     status: {

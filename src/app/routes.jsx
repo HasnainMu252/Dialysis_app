@@ -12,6 +12,11 @@ import TechnicianDashboard from '../pages/technician/TechnicianDashboard';
 import SocialWorkerDashboard from '../pages/socialWorker/SocialWorkerDashboard';
 import BillerDashboard from '../pages/biller/BillerDashboard';
 import BillerDoctorRounds from '../pages/biller/BillerDoctorRounds';
+import PhysicianBilling from '../pages/biller/PhysicianBilling';
+import DialysisBilling from '../pages/biller/DialysisBilling';
+import BatchRoundEntry from '../pages/doctor/BatchRoundEntry';
+import BatchRoundEdit from '../pages/doctor/BatchRoundEdit';
+import CqiPage from '../pages/doctor/CqiPage';
 import UserManagement from '../pages/admin/UserManagement';
 import InsuranceDashboard from '../pages/insurance/InsuranceDashboard';
 import PatientDashboard from '../pages/patient/PatientDashboard';
@@ -110,6 +115,8 @@ export default function AppRoutes() {
             <Route path="/biller" element={<BillerDashboard />} />
             <Route path="/biller/claims" element={<Claims />} />
             <Route path="/biller/doctor-rounds" element={<BillerDoctorRounds />} />
+            <Route path="/biller/physician-billing" element={<PhysicianBilling />} />
+            <Route path="/biller/dialysis-billing" element={<DialysisBilling />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.INSURANCE_PERSON]} />}>
@@ -119,6 +126,9 @@ export default function AppRoutes() {
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.DOCTOR]} />}>
             <Route path="/doctor" element={<DoctorDashboard />} />
             <Route path="/doctor/patients/:id" element={<PatientDetails />} />
+            <Route path="/doctor/batch-round" element={<BatchRoundEntry />} />
+            <Route path="/doctor/batch-edit" element={<BatchRoundEdit />} />
+            <Route path="/doctor/cqi" element={<CqiPage />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.PATIENT]} />}>

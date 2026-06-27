@@ -77,11 +77,12 @@ export default function DoctorDashboard() {
   }, [rows, search]);
 
   const roundStats = useMemo(() => ({
-    zero: rows.filter((row) => row.completedCount === 0).length,
-    one: rows.filter((row) => row.completedCount === 1).length,
-    two: rows.filter((row) => row.completedCount === 2).length,
-    three: rows.filter((row) => row.completedCount === 3).length,
-    four: rows.filter((row) => row.completedCount >= 4).length,
+    round1Pending: rows.filter((row) => row.missingRounds.includes(1)).length,
+    round2Pending: rows.filter((row) => row.missingRounds.includes(2)).length,
+    round3Pending: rows.filter((row) => row.missingRounds.includes(3)).length,
+    round4Pending: rows.filter((row) => row.missingRounds.includes(4)).length,
+    completedThisMonth: rows.filter((row) => row.completedCount >= 4).length,
+    missingMonthly: rows.filter((row) => row.completedCount < 4).length,
   }), [rows]);
 
   const pendingRows = filteredRows.filter((row) => row.completedCount < 4);
@@ -98,13 +99,14 @@ export default function DoctorDashboard() {
         action={<button className="btn-light" onClick={load}>Refresh</button>}
       />
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <StatCard title="Active Patients" value={patients.length} icon={Users} />
-        <StatCard title="0/4 Rounds" value={roundStats.zero} icon={AlertTriangle} />
-        <StatCard title="1/4 Round" value={roundStats.one} icon={ClipboardList} />
-        <StatCard title="2/4 Rounds" value={roundStats.two} icon={Activity} />
-        <StatCard title="3/4 Rounds" value={roundStats.three} icon={Stethoscope} />
-        <StatCard title="4/4 Complete" value={roundStats.four} icon={CheckCircle2} />
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
+        <StatCard title="Total Patients" value={patients.length} icon={Users} />
+        <StatCard title="Round 1 Pending" value={roundStats.round1Pending} icon={AlertTriangle} />
+        <StatCard title="Round 2 Pending" value={roundStats.round2Pending} icon={ClipboardList} />
+        <StatCard title="Round 3 Pending" value={roundStats.round3Pending} icon={Activity} />
+        <StatCard title="Round 4 Pending" value={roundStats.round4Pending} icon={Stethoscope} />
+        <StatCard title="Completed This Month" value={roundStats.completedThisMonth} icon={CheckCircle2} />
+        <StatCard title="Missing Monthly" value={roundStats.missingMonthly} icon={AlertTriangle} />
       </div>
 
       <div className="card grid gap-3 p-4 md:grid-cols-4">

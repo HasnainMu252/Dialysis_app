@@ -9,20 +9,16 @@ import Loading from './Loading';
 import { dateOnly, fileUrl } from '../../utils/format';
 import PdfViewer from '../common/pdfViewer'
 import { insuranceCategories, emptyInsurance, cleanInsurance, InsuranceSection } from './InsuranceSectionFields';
-
-
-console.log('PROD:', import.meta.env.PROD);
-console.log('DEV:', import.meta.env.DEV);
-console.log('API:', import.meta.env.VITE_API_BASE_URL);
 function buildApiUrl(documentUrl) {
   if (!documentUrl) return null;
 
+  // Extract parts after /uploads/
+  // e.g. /uploads/insurance-documents/abc.pdf → insurance-documents/abc.pdf
   const match = documentUrl.match(/\/uploads\/(.+)/);
   if (!match) return null;
 
-  const filePart = match[1];
-
-  return `${import.meta.env.VITE_API_BASE_URL}/files/${filePart}`;
+  const filePart = match[1]; // insurance-documents/abc.pdf
+  return `http://localhost:5000/api/v1/files/${filePart}`;
 }
 
 const emptyForm = {

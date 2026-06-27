@@ -18,6 +18,7 @@ import EmptyState from '../../components/common/EmptyState';
 import InsuranceFormPanel from '../../components/common/InsuranceFormPanel';
 import PatientFormPreview from '../../components/common/PatientFormPreview';
 import PdfViewer from '../../components/common/pdfViewer';
+import RoundDetailModal from '../../components/doctor/RoundDetailModal';
 import { API_BASE_URL } from '../../constants';
 
 import {
@@ -282,6 +283,25 @@ export default function PatientDetails() {
   const [sessions, setSessions] = useState([]);
   const [claims, setClaims] = useState([]);
   const [doctorCheckups, setDoctorCheckups] = useState([]);
+  const [cqiDrafts, setCqiDrafts] = useState({});
+
+  const setCqiField = (id, key, value) =>
+    setCqiDrafts((d) => ({ ...d, [id]: { ...(d[id] || {}), [key]: value } }));
+
+  const saveCqi = async (checkup) => {
+    try {
+      const draft = cqiDrafts[checkup._id] || {
+        patient: checkup.cqi?.patient || '',
+        social: checkup.cqi?.social || '',
+        dietitian: checkup.cqi?.dietitian || '',
+      };
+      await doctorApi.updateCheckup(checkup._id, { cqi: draft });
+      toast.success('CQI saved');
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to save CQI');
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -313,6 +333,7 @@ export default function PatientDetails() {
     documentNotes: '',
   };
   const [showRoundForm, setShowRoundForm] = useState(searchParams.get('addRound') === '1');
+  const [viewRound, setViewRound] = useState(null);
   const [savingRound, setSavingRound] = useState(false);
   const [roundForm, setRoundForm] = useState(emptyRound);
 
@@ -1146,6 +1167,29 @@ export default function PatientDetails() {
       )}
 
 
+      {tab === 'cqi' && (
+        <section className="card space-y-4 p-5">
+          <div>
+            <h2 className="text-lg font-bold">CQI Tracking</h2>
+            <p className="text-sm text-slate-500">Patient, Social and Dietitian CQI notes for each of this patient's rounds.</p>
+          </div>
+          {!doctorCheckups.length && <EmptyState message="No rounds recorded yet" />}
+          {doctorCheckups.map((checkup) => (
+            <div key={checkup._id} className="rounded-2xl border border-slate-200 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <b className="text-slate-900">Round {checkup.roundNumber} <span className="text-xs font-normal text-slate-500">• {checkup.month}/{checkup.year}</span></b>
+                <button className="btn-primary py-1.5 text-xs" onClick={() => saveCqi(checkup)}>Save CQI</button>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                <div><label className="label">Patient CQI</label><textarea className="input min-h-20" value={cqiDrafts[checkup._id]?.patient ?? (checkup.cqi?.patient || '')} onChange={(e) => setCqiField(checkup._id, 'patient', e.target.value)} /></div>
+                <div><label className="label">Social CQI</label><textarea className="input min-h-20" value={cqiDrafts[checkup._id]?.social ?? (checkup.cqi?.social || '')} onChange={(e) => setCqiField(checkup._id, 'social', e.target.value)} /></div>
+                <div><label className="label">Dietitian CQI</label><textarea className="input min-h-20" value={cqiDrafts[checkup._id]?.dietitian ?? (checkup.cqi?.dietitian || '')} onChange={(e) => setCqiField(checkup._id, 'dietitian', e.target.value)} /></div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {tab === 'doctor rounds' && (
         <section className="card space-y-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1191,7 +1235,7 @@ export default function PatientDetails() {
                 <div><label className="label">Objective</label><textarea className="input min-h-24" value={roundForm.soap.objective} onChange={(e) => updateRound('soap.objective', e.target.value)} /></div>
                 <div><label className="label">Assessment</label><textarea className="input min-h-24" value={roundForm.soap.assessment} onChange={(e) => updateRound('soap.assessment', e.target.value)} /></div>
                 <div><label className="label">Plan</label><textarea className="input min-h-24" value={roundForm.soap.plan} onChange={(e) => updateRound('soap.plan', e.target.value)} /></div>
-                <div><label className="label">Doctor Notes</label><textarea className="input min-h-24" value={roundForm.soap.doctorNotes} onChange={(e) => updateRound('soap.doctorNotes', e.target.value)} /></div>
+                <div><label className="label">Doctor Comments</label><textarea className="input min-h-24" value={roundForm.soap.doctorNotes} onChange={(e) => updateRound('soap.doctorNotes', e.target.value)} /></div>
                 <div><label className="label">Next Follow-up Date</label><input className="input" type="date" value={roundForm.nextFollowUpDate} onChange={(e) => updateRound('nextFollowUpDate', e.target.value)} /></div>
               </div>
               <div className="rounded-2xl border border-dashed border-blue-200 bg-white p-4">
@@ -1245,7 +1289,10 @@ export default function PatientDetails() {
                           Doctor: {checkup.doctor?.name || checkup.doctor?.email || 'Doctor'}
                         </p>
                       </div>
-                      <StatusBadge status={checkup.status || 'completed'} />
+                      <div className="flex items-center gap-2">
+                        <button className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100" onClick={() => setViewRound(checkup)}>View detail</button>
+                        <StatusBadge status={checkup.status || 'completed'} />
+                      </div>
                     </div>
 
                     <div className="grid gap-2 text-xs sm:grid-cols-3">
@@ -1284,7 +1331,7 @@ export default function PatientDetails() {
 
                     {checkup.soap?.doctorNotes && (
                       <div className="mt-3 rounded-xl bg-white p-3 text-sm">
-                        <p className="font-bold text-slate-700">Doctor Notes</p>
+                        <p className="font-bold text-slate-700">Doctor Comments</p>
                         <p className="text-slate-600">{checkup.soap.doctorNotes}</p>
                       </div>
                     )}
@@ -1333,6 +1380,8 @@ export default function PatientDetails() {
           {!claims.length && <EmptyState message="No claims yet" />}
         </section>
       )}
+
+      {viewRound && <RoundDetailModal round={viewRound} onClose={() => setViewRound(null)} />}
     </div>
   );
 }

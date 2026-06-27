@@ -79,6 +79,12 @@ export const createDoctorCheckup = asyncHandler(async (req, res) => {
     soap,
     nextFollowUpDate,
     status = 'completed',
+    physicianRound = {},
+    doctorComments = '',
+    socialWorkerComments = '',
+    dietitianComments = '',
+    cqi = {},
+    templateUsed = '',
   } = req.body;
 
   if (!roundNumber || ![1, 2, 3, 4].includes(Number(roundNumber))) {
@@ -118,6 +124,17 @@ export const createDoctorCheckup = asyncHandler(async (req, res) => {
     soap,
     nextFollowUpDate,
     status,
+    physicianRound,
+    doctorComments,
+    socialWorkerComments,
+    dietitianComments,
+    cqi: {
+      patient: cqi.patient || '',
+      social: cqi.social || '',
+      dietitian: cqi.dietitian || '',
+    },
+    templateUsed,
+    approval: { status: 'pending', history: [] },
     createdBy: req.user._id,
   });
 
@@ -165,7 +182,11 @@ export const updateDoctorCheckup = asyncHandler(async (req, res) => {
     });
   }
 
-  const allowedFields = ['checkupDate', 'vitals', 'soap', 'nextFollowUpDate', 'status'];
+  const allowedFields = [
+    'checkupDate', 'vitals', 'soap', 'nextFollowUpDate', 'status',
+    'physicianRound', 'doctorComments', 'socialWorkerComments',
+    'dietitianComments', 'cqi', 'templateUsed',
+  ];
 
   allowedFields.forEach((field) => {
     if (req.body[field] !== undefined) {
@@ -342,4 +363,186 @@ export const createMissingRoundNotifications = asyncHandler(async (_req, res) =>
     message: 'Missing doctor round notifications created',
     errors: [],
   });
+});
+/**
+ * POST /api/v1/doctors/checkups/batch
+ * Create the same monthly round for many selected patients at once.
+ * body: { patientIds:[], month, year, roundNumber, ...roundData }
+ */
+export const batchCreateCheckups = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const {
+    patientIds = [],
+    month = now.getMonth() + 1,
+    year = now.getFullYear(),
+    roundNumber,
+    checkupDate,
+    vitals,
+    soap,
+    physicianRound = {},
+    doctorComments = '',
+    socialWorkerComments = '',
+    dietitianComments = '',
+    cqi = {},
+    templateUsed = '',
+    status = 'completed',
+  } = req.body;
+
+  if (!Array.isArray(patientIds) || !patientIds.length) {
+    res.status(400);
+    throw new Error('Select at least one patient');
+  }
+  if (!roundNumber || ![1, 2, 3, 4].includes(Number(roundNumber))) {
+    res.status(400);
+    throw new Error('roundNumber must be 1, 2, 3 or 4');
+  }
+
+  const patients = await Patient.find({ _id: { $in: patientIds } }).select('mrn');
+  const created = [];
+  const skipped = [];
+
+  for (const patient of patients) {
+    const exists = await DoctorCheckup.findOne({
+      patient: patient._id, month: Number(month), year: Number(year), roundNumber: Number(roundNumber),
+    });
+    if (exists) { skipped.push(patient.mrn); continue; }
+    /* eslint-disable no-await-in-loop */
+    const doc = await DoctorCheckup.create({
+      patient: patient._id,
+      patientMrn: patient.mrn,
+      doctor: req.user._id,
+      month: Number(month),
+      year: Number(year),
+      roundNumber: Number(roundNumber),
+      checkupDate,
+      vitals,
+      soap,
+      physicianRound,
+      doctorComments,
+      socialWorkerComments,
+      dietitianComments,
+      cqi: { patient: cqi.patient || '', social: cqi.social || '', dietitian: cqi.dietitian || '' },
+      templateUsed,
+      status,
+      approval: { status: 'pending', history: [] },
+      createdBy: req.user._id,
+    });
+    created.push(doc);
+  }
+
+  res.status(201).json({
+    success: true,
+    data: { createdCount: created.length, skipped, created },
+    message: `Created ${created.length} round(s)${skipped.length ? `, skipped ${skipped.length} (already existed)` : ''}`,
+    errors: [],
+  });
+});
+
+/**
+ * PATCH /api/v1/doctors/checkups/batch
+ * Apply the same field updates to many existing rounds.
+ * Only NON-EMPTY values are merged, so untouched fields are preserved
+ * and round data actually updates instead of being wiped.
+ * body: { ids:[], updates:{ ... } }
+ */
+export const batchUpdateCheckups = asyncHandler(async (req, res) => {
+  const { ids = [], updates = {} } = req.body;
+  if (!Array.isArray(ids) || !ids.length) {
+    res.status(400);
+    throw new Error('Select at least one round');
+  }
+
+  const isEmpty = (v) => v === '' || v === null || v === undefined || v === false;
+
+  // merge only the non-empty leaf values from src into target
+  const mergeNonEmpty = (target = {}, src = {}) => {
+    const out = { ...target };
+    Object.entries(src).forEach(([k, v]) => {
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        out[k] = mergeNonEmpty(out[k] || {}, v);
+      } else if (!isEmpty(v)) {
+        out[k] = v;
+      }
+    });
+    return out;
+  };
+
+  const checkups = await DoctorCheckup.find({ _id: { $in: ids } });
+  let modified = 0;
+
+  for (const checkup of checkups) {
+    if (updates.physicianRound) {
+      checkup.physicianRound = mergeNonEmpty(checkup.physicianRound || {}, updates.physicianRound);
+      checkup.markModified('physicianRound');
+    }
+    if (updates.cqi) {
+      checkup.cqi = mergeNonEmpty(checkup.cqi?.toObject ? checkup.cqi.toObject() : checkup.cqi || {}, updates.cqi);
+    }
+    if (updates.vitals) checkup.vitals = mergeNonEmpty(checkup.vitals?.toObject ? checkup.vitals.toObject() : checkup.vitals || {}, updates.vitals);
+    if (updates.soap) checkup.soap = mergeNonEmpty(checkup.soap?.toObject ? checkup.soap.toObject() : checkup.soap || {}, updates.soap);
+    if (!isEmpty(updates.doctorComments)) checkup.doctorComments = updates.doctorComments;
+    if (!isEmpty(updates.socialWorkerComments)) checkup.socialWorkerComments = updates.socialWorkerComments;
+    if (!isEmpty(updates.dietitianComments)) checkup.dietitianComments = updates.dietitianComments;
+    if (!isEmpty(updates.status)) checkup.status = updates.status;
+    checkup.updatedBy = req.user._id;
+    /* eslint-disable-next-line no-await-in-loop */
+    await checkup.save();
+    modified += 1;
+  }
+
+  res.json({
+    success: true,
+    data: { matched: checkups.length, modified },
+    message: `Updated ${modified} round(s)`,
+    errors: [],
+  });
+});
+
+/**
+ * GET /api/v1/doctors/checkups?month=&year=&roundNumber=&approval=
+ * Flat list of rounds (for batch edit, physician billing, history).
+ */
+export const listAllCheckups = asyncHandler(async (req, res) => {
+  const { month, year, roundNumber, approval } = req.query;
+  const query = {};
+  if (month) query.month = Number(month);
+  if (year) query.year = Number(year);
+  if (roundNumber) query.roundNumber = Number(roundNumber);
+  if (approval) query['approval.status'] = approval;
+
+  const checkups = await DoctorCheckup.find(query)
+    .populate('patient', 'mrn firstName lastName')
+    .populate('doctor', 'name email')
+    .sort({ year: -1, month: -1, roundNumber: 1 })
+    .lean();
+
+  res.json({ success: true, data: checkups, meta: { total: checkups.length }, message: 'Checkups fetched', errors: [] });
+});
+
+/**
+ * PATCH /api/v1/doctors/checkups/:id/approval
+ * Biller approval workflow: pending -> approved / rejected.
+ */
+export const updateCheckupApproval = asyncHandler(async (req, res) => {
+  const { status, note = '' } = req.body;
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    res.status(400);
+    throw new Error('status must be pending, approved or rejected');
+  }
+
+  const checkup = await DoctorCheckup.findById(req.params.id);
+  if (!checkup) {
+    res.status(404);
+    throw new Error('Round not found');
+  }
+
+  checkup.approval = checkup.approval || {};
+  checkup.approval.status = status;
+  checkup.approval.reviewedBy = req.user._id;
+  checkup.approval.reviewedAt = new Date();
+  checkup.approval.history = checkup.approval.history || [];
+  checkup.approval.history.push({ status, note, by: req.user._id, at: new Date() });
+  await checkup.save();
+
+  res.json({ success: true, data: checkup, message: `Round ${status}`, errors: [] });
 });

@@ -9,6 +9,10 @@ import {
   getPatientDoctorCheckups,
   updateDoctorCheckup,
   uploadDoctorCheckupDocuments,
+  batchCreateCheckups,
+  batchUpdateCheckups,
+  listAllCheckups,
+  updateCheckupApproval,
 } from '../controllers/doctorController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { uploadDoctorDocument } from '../middleware/uploadDoctorDocument.js';
@@ -17,6 +21,31 @@ import { ROLES } from '../utils/constants.js';
 const router = express.Router();
 
 router.use(protect);
+
+// Flat checkup list + batch operations (declared before /patients to avoid clashes)
+router.get(
+  '/checkups',
+  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER),
+  listAllCheckups
+);
+
+router.post(
+  '/checkups/batch',
+  authorize(ROLES.ADMIN, ROLES.DOCTOR),
+  batchCreateCheckups
+);
+
+router.patch(
+  '/checkups/batch',
+  authorize(ROLES.ADMIN, ROLES.DOCTOR),
+  batchUpdateCheckups
+);
+
+router.patch(
+  '/checkups/:id/approval',
+  authorize(ROLES.ADMIN, ROLES.BILLER),
+  updateCheckupApproval
+);
 
 router.get(
   '/patients',

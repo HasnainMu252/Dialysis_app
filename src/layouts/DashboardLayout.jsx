@@ -119,7 +119,7 @@ export default function DashboardLayout() {
             <div className="flex min-w-0 items-center gap-3">
               <button className="rounded-2xl bg-blue-600 p-2.5 text-white shadow-lg shadow-blue-200 lg:hidden" onClick={() => setDrawerOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
               <div className="min-w-0">
-                <h2 className="truncate text-base font-extrabold text-slate-950 sm:text-lg"> Dashboard</h2>
+                <h2 className="truncate text-base font-extrabold text-slate-950 sm:text-lg">{ROLE_LABELS[user?.role] || 'Dashboard'}</h2>
                 <p className="hidden truncate text-xs font-medium text-slate-500 sm:block">{user?.email}</p>
               </div>
             </div>

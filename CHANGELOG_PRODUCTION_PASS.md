@@ -168,3 +168,59 @@ backend (Express/Mongoose).
   schedules (current + history), sessions, claims, doctor pending + all-patients,
   biller monthly rounds, and user management — via a reusable Pagination
   component and paging hook.
+
+---
+
+## Revision 6 — Doctor Module V2 (Physician Management System)
+**Backend**
+- Expanded `DoctorCheckup` with the structured monthly round (`physicianRound`:
+  subjective/ROS, physical exam, access evaluation, lab review), `doctorComments`,
+  `socialWorkerComments`, `dietitianComments`, `cqi` {patient, social, dietitian},
+  `approval` {status, reviewedBy, history}, and `templateUsed`.
+- New endpoints: `POST /doctors/checkups/batch` (batch create),
+  `PATCH /doctors/checkups/batch` (batch edit), `GET /doctors/checkups`
+  (flat list/filter), `PATCH /doctors/checkups/:id/approval` (biller approval),
+  and `GET /reports/dialysis-billing` (completed sessions w/ duration + count).
+- Monthly rounds export now includes Doctor/Social/Dietitian comments, CQI, Lab
+  Review, Blood Pressure, Access Evaluation, status and approval, in **Excel and
+  CSV**.
+
+**Frontend**
+- **Structured Monthly Physician Round form** (Sections A–D with checkboxes /
+  dropdowns), multi-disciplinary comments, CQI, and **built-in templates** that
+  auto-fill the form (Stable Dialysis, Weekly Review, CKD Stable, Routine Monthly).
+- **Batch Monthly Round** (select many patients, fill once, apply) and **Batch
+  Edit** (update many existing rounds at once).
+- **CQI page** (edit Patient/Social/Dietitian CQI per round).
+- **Physician Billing** (biller approval workflow) and **Dialysis Billing**
+  (completed sessions → CDMS) pages.
+- Doctor dashboard stats updated to: Total Patients, Round 1–4 Pending,
+  Completed This Month, Missing Monthly.
+- Renamed "Doctor Notes" → "Doctor Comments".
+
+**Simplified / next phase (called out honestly):** single structured round is
+currently reached via Batch Round (select one patient); the patient-tab quick
+SOAP form remains for fast entry. PDF export and a scheduled missing-round
+notification job are not yet included (Excel/CSV export and on-dashboard missing
+counts are). Round-history rendering of the full structured fields in the patient
+tab is summarized rather than fully expanded.
+
+---
+
+## Revision 7 — Doctor V2 fixes & refinements
+- **Chair grid made compact** (smaller cards, denser columns) on the Schedule
+  Patient screen and Chairs Status page, so all chairs fit on one screen.
+- **Batch Monthly Round**: patient picker now shows a **4-column grid (16 per
+  page)** with search, plus an **"Only missing Round N"** filter so you can't
+  create duplicate rounds — pick a round, see only patients still missing it.
+- **Fixed batch edit not updating:** the backend now **deep-merges only the
+  fields you actually filled** into each selected round (instead of replacing the
+  whole object with blanks), so Round 1 edits apply correctly and untouched
+  fields are preserved.
+- **View detail on rounds:** every round in Doctor Rounds now has a **"View
+  detail"** button opening a modal with all structured fields (Sections A–D,
+  comments, CQI, vitals, documents, approval) — the same fields as the batch form.
+- **CQI tab in patient detail** (doctor/admin) for quick per-round CQI editing,
+  alongside the dedicated CQI page.
+- **Admin access:** Batch Monthly Round, Batch Edit, CQI, Physician Billing and
+  Dialysis Billing are now in the admin sidebar (admin already had route access).

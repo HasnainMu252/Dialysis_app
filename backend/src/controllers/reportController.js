@@ -88,6 +88,12 @@ const buildMonthlySoap = async (month, year) => {
       doctorName: c.doctor?.name || c.doctor?.email || 'Unknown',
       vitals: c.vitals || {},
       soap: c.soap || {},
+      physicianRound: c.physicianRound || {},
+      doctorComments: c.doctorComments || '',
+      socialWorkerComments: c.socialWorkerComments || '',
+      dietitianComments: c.dietitianComments || '',
+      cqi: c.cqi || {},
+      approvalStatus: c.approval?.status || 'pending',
     });
   }
 
@@ -129,57 +135,55 @@ export const getMonthlySoapReport = asyncHandler(async (req, res) => {
 
   const report = await buildMonthlySoap(month, year);
 
-  if (format === 'xlsx') {
+  if (format === 'xlsx' || format === 'csv') {
+    const flat = (obj = {}) =>
+      Object.entries(obj)
+        .filter(([, v]) => v !== '' && v !== null && v !== undefined && !(typeof v === 'object' && !Object.keys(v).length))
+        .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+        .join('; ');
+
     const rows = [];
     report.patients.forEach((p) => {
       if (!p.rounds.length) {
-        rows.push({
-          MRN: p.patientMrn,
-          Patient: p.patientName,
-          Round: '-',
-          Status: 'no rounds',
-          Doctor: '-',
-          Date: '-',
-          Subjective: '',
-          Objective: '',
-          Assessment: '',
-          Plan: '',
-          Completion: `${p.completedCount}/${p.totalRounds}`,
-        });
+        rows.push({ Patient: p.patientName, MRN: p.patientMrn, Month: `${month}/${year}`, Round: '-', Doctor: '-', 'Doctor Comments': '', 'Social Worker Comments': '', 'Dietitian Comments': '', CQI: '', 'Laboratory Review': '', 'Blood Pressure': '', 'Access Evaluation': '', Status: 'no rounds', Approval: '-', Completion: `${p.completedCount}/${p.totalRounds}` });
         return;
       }
-      p.rounds
-        .sort((a, b) => a.roundNumber - b.roundNumber)
-        .forEach((r) => {
-          rows.push({
-            MRN: p.patientMrn,
-            Patient: p.patientName,
-            Round: r.roundNumber,
-            Status: r.status,
-            Doctor: r.doctorName,
-            Date: r.checkupDate ? new Date(r.checkupDate).toISOString().slice(0, 10) : '-',
-            Subjective: r.soap.subjective || '',
-            Objective: r.soap.objective || '',
-            Assessment: r.soap.assessment || '',
-            Plan: r.soap.plan || '',
-            Completion: `${p.completedCount}/${p.totalRounds}`,
-          });
+      p.rounds.sort((a, b) => a.roundNumber - b.roundNumber).forEach((r) => {
+        const lab = r.physicianRound?.laboratoryReview || {};
+        rows.push({
+          Patient: p.patientName,
+          MRN: p.patientMrn,
+          Month: `${month}/${year}`,
+          Round: r.roundNumber,
+          Doctor: r.doctorName,
+          'Doctor Comments': r.doctorComments || r.soap?.doctorNotes || '',
+          'Social Worker Comments': r.socialWorkerComments || '',
+          'Dietitian Comments': r.dietitianComments || '',
+          CQI: flat(r.cqi),
+          'Laboratory Review': flat(lab),
+          'Blood Pressure': lab.bloodPressure || r.vitals?.bloodPressure || '',
+          'Access Evaluation': flat(r.physicianRound?.accessEvaluation || {}),
+          Status: r.status,
+          Approval: r.approvalStatus,
+          Completion: `${p.completedCount}/${p.totalRounds}`,
         });
+      });
     });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `SOAP ${month}-${year}`);
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    XLSX.utils.book_append_sheet(workbook, worksheet, `Rounds ${month}-${year}`);
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="soap-report-${year}-${String(month).padStart(2, '0')}.xlsx"`
-    );
+    if (format === 'csv') {
+      const csv = XLSX.utils.sheet_to_csv(worksheet);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="doctor-rounds-${year}-${String(month).padStart(2, '0')}.csv"`);
+      return res.send(csv);
+    }
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="doctor-rounds-${year}-${String(month).padStart(2, '0')}.xlsx"`);
     return res.send(buffer);
   }
 
@@ -217,6 +221,55 @@ export const getMonthlySessionReport = asyncHandler(async (req, res) => {
       byStatus: countByStatus(sessions),
     },
     message: 'Monthly session report generated',
+    errors: [],
+  });
+});
+
+/**
+ * GET /api/v1/reports/dialysis-billing?month=&year=
+ * Completed dialysis sessions prepared for CDMS billing submission.
+ */
+export const getDialysisBilling = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const month = Number(req.query.month || now.getMonth() + 1);
+  const year = Number(req.query.year || now.getFullYear());
+  const { start, end } = monthRange(month, year);
+
+  const sessions = await DialysisSession.find({
+    status: 'completed',
+    completedAt: { $gte: start, $lt: end },
+  })
+    .populate('patient', 'mrn firstName lastName')
+    .populate('chair', 'code chairNumber')
+    .lean();
+
+  const countByPatient = {};
+  sessions.forEach((s) => {
+    const key = s.patient?._id?.toString() || s.patientMrn || 'unknown';
+    countByPatient[key] = (countByPatient[key] || 0) + 1;
+  });
+
+  const rows = sessions.map((s) => {
+    const durationMin = s.startedAt && s.completedAt
+      ? Math.round((new Date(s.completedAt) - new Date(s.startedAt)) / 60000)
+      : null;
+    const key = s.patient?._id?.toString() || s.patientMrn || 'unknown';
+    return {
+      sessionId: s._id,
+      patientName: s.patient ? `${s.patient.firstName || ''} ${s.patient.lastName || ''}`.trim() : '-',
+      patientMrn: s.patient?.mrn || '-',
+      chair: s.chair?.code || s.chair?.chairNumber || '-',
+      treatmentDate: s.completedAt,
+      durationMinutes: durationMin,
+      treatmentCount: countByPatient[key],
+      billingStatus: s.sentToBillerAt ? 'ready' : 'pending',
+    };
+  });
+
+  res.json({
+    success: true,
+    data: { month, year, total: rows.length, rows },
+    message: 'Dialysis billing prepared',
     errors: [],
   });
 });

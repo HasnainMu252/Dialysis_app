@@ -3,9 +3,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cors from 'cors';
 import path from 'path';
-import dotenv from 'dotenv';
 
-dotenv.config();
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/error.js';
 
@@ -16,7 +14,7 @@ const allowedOrigins = (
   'http://localhost:5173,http://127.0.0.1:5173'
 )
   .split(',')
-  .map(origin => origin.trim())
+  .map((origin) => origin.trim())
   .filter(Boolean);
 
 const corsOptions = {
