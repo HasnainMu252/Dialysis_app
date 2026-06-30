@@ -4,7 +4,7 @@ import { ROUND_SECTIONS, ROUND_TEMPLATES, TEMPLATE_NAMES } from '../../constants
  * Controlled structured round form.
  * value = { physicianRound, doctorComments, socialWorkerComments, dietitianComments, cqi, templateUsed }
  */
-export default function PhysicianRoundForm({ value, onChange, showComments = true, showCqi = true }) {
+export default function PhysicianRoundForm({ value, onChange, showComments = true, showCqi = true, hiddenSections = [] }) {
   const pr = value.physicianRound || {};
 
   const setSectionField = (sectionKey, fieldKey, fieldValue) => {
@@ -46,7 +46,7 @@ export default function PhysicianRoundForm({ value, onChange, showComments = tru
         <p className="text-xs font-medium text-slate-500">Pick a template, then edit only what's needed.</p>
       </div>
 
-      {ROUND_SECTIONS.map((section) => (
+      {ROUND_SECTIONS.filter((section) => !hiddenSections.includes(section.key)).map((section) => (
         <div key={section.key} className="rounded-2xl border border-slate-200 p-4">
           <h4 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-blue-800">{section.title}</h4>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

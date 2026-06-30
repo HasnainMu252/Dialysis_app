@@ -19,6 +19,8 @@ import InsuranceFormPanel from '../../components/common/InsuranceFormPanel';
 import PatientFormPreview from '../../components/common/PatientFormPreview';
 import PdfViewer from '../../components/common/pdfViewer';
 import RoundDetailModal from '../../components/doctor/RoundDetailModal';
+import PhysicianRoundForm from '../../components/doctor/PhysicianRoundForm';
+import { emptyPhysicianRound } from '../../constants/physicianRound';
 import { API_BASE_URL } from '../../constants';
 
 import {
@@ -328,6 +330,12 @@ export default function PatientDetails() {
     status: 'completed',
     vitals: { bloodPressure: '', pulse: '', temperature: '', respiratoryRate: '', weight: '', oxygenSaturation: '' },
     soap: { subjective: '', objective: '', assessment: '', plan: '', doctorNotes: '' },
+    physicianRound: emptyPhysicianRound(),
+    doctorComments: '',
+    socialWorkerComments: '',
+    dietitianComments: '',
+    cqi: { patient: '', social: '', dietitian: '' },
+    templateUsed: '',
     documents: [],
     documentName: '',
     documentNotes: '',
@@ -362,6 +370,12 @@ export default function PatientDetails() {
         status: roundForm.status,
         vitals: roundForm.vitals,
         soap: roundForm.soap,
+        physicianRound: roundForm.physicianRound,
+        doctorComments: roundForm.doctorComments,
+        socialWorkerComments: roundForm.socialWorkerComments,
+        dietitianComments: roundForm.dietitianComments,
+        cqi: roundForm.cqi,
+        templateUsed: roundForm.templateUsed,
       };
       const res = await doctorApi.createCheckup(patient._id, body);
       const checkup = res.data?.data;
@@ -1230,12 +1244,18 @@ export default function PatientDetails() {
                 <div><label className="label">Weight</label><input className="input" value={roundForm.vitals.weight} onChange={(e) => updateRound('vitals.weight', e.target.value)} /></div>
                 <div><label className="label">Oxygen Saturation</label><input className="input" value={roundForm.vitals.oxygenSaturation} onChange={(e) => updateRound('vitals.oxygenSaturation', e.target.value)} /></div>
               </div>
+              <PhysicianRoundForm
+                value={{
+                  physicianRound: roundForm.physicianRound,
+                  doctorComments: roundForm.doctorComments,
+                  socialWorkerComments: roundForm.socialWorkerComments,
+                  dietitianComments: roundForm.dietitianComments,
+                  cqi: roundForm.cqi,
+                  templateUsed: roundForm.templateUsed,
+                }}
+                onChange={(v) => setRoundForm((prev) => ({ ...prev, ...v }))}
+              />
               <div className="grid gap-4 md:grid-cols-2">
-                <div><label className="label">Subjective</label><textarea className="input min-h-24" value={roundForm.soap.subjective} onChange={(e) => updateRound('soap.subjective', e.target.value)} /></div>
-                <div><label className="label">Objective</label><textarea className="input min-h-24" value={roundForm.soap.objective} onChange={(e) => updateRound('soap.objective', e.target.value)} /></div>
-                <div><label className="label">Assessment</label><textarea className="input min-h-24" value={roundForm.soap.assessment} onChange={(e) => updateRound('soap.assessment', e.target.value)} /></div>
-                <div><label className="label">Plan</label><textarea className="input min-h-24" value={roundForm.soap.plan} onChange={(e) => updateRound('soap.plan', e.target.value)} /></div>
-                <div><label className="label">Doctor Comments</label><textarea className="input min-h-24" value={roundForm.soap.doctorNotes} onChange={(e) => updateRound('soap.doctorNotes', e.target.value)} /></div>
                 <div><label className="label">Next Follow-up Date</label><input className="input" type="date" value={roundForm.nextFollowUpDate} onChange={(e) => updateRound('nextFollowUpDate', e.target.value)} /></div>
               </div>
               <div className="rounded-2xl border border-dashed border-blue-200 bg-white p-4">

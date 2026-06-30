@@ -5,11 +5,21 @@ import EmptyState from '../../components/common/EmptyState';
 import PhysicianRoundForm from '../../components/doctor/PhysicianRoundForm';
 import Pagination, { usePagedList } from '../../components/common/Pagination';
 import { doctorApi } from '../../api/doctorApi';
-import { emptyPhysicianRound } from '../../constants/physicianRound';
+import { emptyPhysicianRound, ROUND_TEMPLATES } from '../../constants/physicianRound';
 import { personName } from '../../utils/format';
 
 const now = new Date();
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Pre-fill with a sensible default template so the doctor only edits what changed.
+const buildDefaultForm = () => {
+  const tplName = 'Routine Monthly Review';
+  const tpl = ROUND_TEMPLATES[tplName];
+  const pr = emptyPhysicianRound();
+  Object.entries(tpl.physicianRound || {}).forEach(([sk, fields]) => { pr[sk] = { ...pr[sk], ...fields }; });
+  pr.laboratoryReview = {}; // Section D is not part of the monthly batch
+  return { physicianRound: pr, doctorComments: tpl.doctorComments || '', socialWorkerComments: '', dietitianComments: '', cqi: { patient: '', social: '', dietitian: '' }, templateUsed: tplName };
+};
 
 export default function BatchRoundEntry() {
   const [patients, setPatients] = useState([]);
@@ -21,7 +31,7 @@ export default function BatchRoundEntry() {
   const [year, setYear] = useState(now.getFullYear());
   const [roundNumber, setRoundNumber] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ physicianRound: emptyPhysicianRound(), doctorComments: '', socialWorkerComments: '', dietitianComments: '', cqi: {}, templateUsed: '' });
+  const [form, setForm] = useState(buildDefaultForm);
 
   useEffect(() => {
     doctorApi.patients().then((res) => setPatients(res.data?.data || [])).catch(() => {});
@@ -118,7 +128,7 @@ export default function BatchRoundEntry() {
 
       <section className="card p-5">
         <h2 className="mb-4 text-lg font-extrabold text-slate-900">Round Details (applied to all selected)</h2>
-        <PhysicianRoundForm value={form} onChange={setForm} />
+        <PhysicianRoundForm value={form} onChange={setForm} hiddenSections={['laboratoryReview']} />
         <div className="mt-5 flex justify-end">
           <button className="btn-primary" onClick={apply} disabled={saving}>{saving ? 'Applying…' : `Apply To ${selectedIds.length} Patient(s)`}</button>
         </div>

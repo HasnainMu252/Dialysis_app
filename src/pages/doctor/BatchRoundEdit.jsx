@@ -94,7 +94,7 @@ export default function BatchRoundEdit() {
 
       <section className="card p-5">
         <h2 className="mb-4 text-lg font-extrabold text-slate-900">Updates (applied to all selected rounds)</h2>
-        <PhysicianRoundForm value={form} onChange={setForm} />
+        <PhysicianRoundForm value={form} onChange={setForm} hiddenSections={['laboratoryReview']} />
         <div className="mt-5 flex justify-end">
           <button className="btn-primary" onClick={apply} disabled={saving}>{saving ? 'Applying…' : `Apply To ${selectedIds.length} Round(s)`}</button>
         </div>

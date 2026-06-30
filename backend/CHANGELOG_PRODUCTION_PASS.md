@@ -224,3 +224,24 @@ tab is summarized rather than fully expanded.
   alongside the dedicated CQI page.
 - **Admin access:** Batch Monthly Round, Batch Edit, CQI, Physician Billing and
   Dialysis Billing are now in the admin sidebar (admin already had route access).
+
+---
+
+## Revision 8 — structured form everywhere, roles, mobile, CQI visibility
+- **Individual "Add SOAP Round" now uses the full structured form** (Sections
+  A–D, comments, CQI, templates) — identical to the batch form — plus vitals and
+  multi-file upload.
+- **Batch round form is pre-filled** with a sensible default template (Routine
+  Monthly Review) so the doctor only edits what changed before applying to all
+  selected patients.
+- **Nurse can cancel appointments** (backend permission + a dedicated Cancel
+  button on the schedule view for nurses).
+- **Social worker no longer sees full patient bio/insurance/claims** — their
+  dashboard panel is limited to schedules + support info, and they still have no
+  Full Profile tab.
+- **Mobile polish:** reduced the overall on-screen scale on phones (root font
+  size) so it isn't "zoomed in" after deploy, and made the logo smaller on mobile.
+- **Doctor comments + CQI visibility for billing:** Physician Billing now has a
+  **View** button (full round detail incl. all comments + CQI) and **Export Excel
+  / CSV** (report includes Doctor / Social Worker / Dietitian comments and CQI),
+  available to admin and biller.

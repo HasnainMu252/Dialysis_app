@@ -37,13 +37,13 @@ router.delete('/:code', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), deleteSchedule
 
 router.patch(
   '/:code/cancel',
-  authorize(ROLES.ADMIN, ROLES.FRONT_DESK),
+  authorize(ROLES.ADMIN, ROLES.FRONT_DESK, ROLES.NURSE),
   requestCancel
 );
 
 router.patch(
   '/:code/cancel/approve',
-  authorize(ROLES.ADMIN, ROLES.FRONT_DESK),
+  authorize(ROLES.ADMIN, ROLES.FRONT_DESK, ROLES.NURSE),
   approveCancel
 );
 

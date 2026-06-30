@@ -57,3 +57,11 @@ body { overflow-x: hidden; }
 
 /* Tables scroll horizontally instead of breaking the layout on small screens */
 .table-wrap, .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+
+/* Reduce the overall scale on phones so the UI isn't "zoomed in" after deploy */
+@media (max-width: 640px) {
+  html { font-size: 14px; }
+}
+@media (max-width: 400px) {
+  html { font-size: 13px; }
+}

@@ -6,8 +6,8 @@ import { sessionApi } from '../../api/sessionApi';
 import { billingApi } from '../../api/billingApi';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
-import PatientJourneyPanel from '../../components/common/PatientJourneyPanel';
 import ScheduleCard from '../../components/common/ScheduleCard';
+import { personName } from '../../utils/format';
 import StatCard from '../../components/ui/StatCard';
 import { CalendarDays, CalendarRange, Users, CalendarCheck } from 'lucide-react';
 
@@ -90,8 +90,30 @@ export default function SocialWorkerDashboard() {
 
         <section className="xl:col-span-1">
           {selected
-            ? <PatientJourneyPanel patient={selected} schedules={patientSchedules(selected)} sessions={patientSessions(selected)} claims={patientClaims(selected)} />
-            : <EmptyState message="Click a schedule card to view that patient's bio, schedules and sessions." />}
+            ? (
+              <div className="card space-y-3 p-5">
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">{personName(selected)}</h3>
+                  <p className="text-sm text-slate-500">{selected.mrn} • {selected.phone || 'No phone'}</p>
+                </div>
+                <div className="rounded-xl bg-blue-50 p-3 text-xs font-semibold text-blue-700">
+                  Social worker view: schedules and support coordination only. Full medical and insurance bio data is not shown for this role.
+                </div>
+                <div>
+                  <h4 className="mb-2 font-bold text-slate-800">Schedule History</h4>
+                  <div className="space-y-2">
+                    {patientSchedules(selected).map((s) => (
+                      <div key={s.id || s._id || s.code} className="rounded-xl border p-3 text-sm">
+                        <div className="flex justify-between gap-2"><b>{s.code}</b><span className="text-xs text-slate-500">{s.status}</span></div>
+                        <p className="text-slate-600">{s.date ? new Date(s.date).toISOString().slice(0, 10) : '-'} • {s.startTime}-{s.endTime}</p>
+                      </div>
+                    ))}
+                    {!patientSchedules(selected).length && <p className="text-sm text-slate-500">No schedules found.</p>}
+                  </div>
+                </div>
+              </div>
+            )
+            : <EmptyState message="Click a schedule card to view that patient's schedules and support info." />}
         </section>
       </div>
     </div>
