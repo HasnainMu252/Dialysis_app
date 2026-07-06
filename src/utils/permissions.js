@@ -61,12 +61,14 @@ export const PATIENT_TAB_LABELS = {
   'doctor rounds': 'Doctor Rounds',
   claims: 'Claims',
   cqi: 'CQI',
+  'medication history': 'Medication History',
+  'billing history': 'Billing History',
 };
 
 const TABS_BY_ROLE = {
   [ROLES.ADMIN]: [
     'overview', 'full profile', 'insurance form', 'documents',
-    'schedules', 'sessions', 'claims', 'treatment', 'doctor rounds', 'cqi',
+    'schedules', 'sessions', 'claims', 'treatment', 'doctor rounds', 'cqi', 'medication history', 'billing history',
   ],
   [ROLES.INSURANCE_PERSON]: [
     'overview', 'full profile', 'insurance form', 'documents',
@@ -74,17 +76,17 @@ const TABS_BY_ROLE = {
   ],
   [ROLES.BILLER]: [
     'overview', 'full profile', 'insurance form', 'documents',
-    'schedules', 'sessions', 'claims', 'treatment',
+    'schedules', 'sessions', 'claims', 'treatment', 'medication history', 'billing history',
   ],
   [ROLES.FRONT_DESK]: [
     'overview', 'full profile', 'insurance form', 'documents', 'schedules',
   ],
   [ROLES.DOCTOR]: [
     'overview', 'full profile', 'medical history', 'doctor rounds',
-    'cqi', 'documents', 'schedules', 'treatment',
+    'cqi', 'documents', 'schedules', 'treatment', 'medication history',
   ],
   [ROLES.NURSE]: [
-    'overview', 'medical history', 'schedules', 'sessions', 'treatment',
+    'overview', 'medical history', 'schedules', 'sessions', 'treatment', 'medication history',
   ],
   [ROLES.TECHNICIAN]: [
     'overview', 'schedules', 'treatment',
@@ -113,18 +115,19 @@ export const NAV_BY_ROLE = {
   [ROLES.ADMIN]: [
     ['Admin Dashboard', '/admin', 'home'],
     ['User Management', '/admin/users', 'users'],
+    ['Audit Trail', '/admin/audit-logs', 'activity'],
     ['Patients', '/front-desk/patients', 'users'],
     ['Create Schedule', '/front-desk/scheduling', 'calendar'],
     ['Schedules', '/schedules', 'calendar'],
     ['Chairs', '/chairs', 'chair'],
     ['Chair Maintenance', '/technician/maintenance', 'wrench'],
-    ['Sessions', '/sessions', 'activity'],
     ['Treatment Workflow', '/workflow', 'stethoscope'],
     ['Batch Monthly Round', '/doctor/batch-round', 'stethoscope'],
     ['Batch Edit', '/doctor/batch-edit', 'activity'],
     ['CQI', '/doctor/cqi', 'chart'],
     ['Physician Billing', '/biller/physician-billing', 'card'],
     ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
+    ['Medication Billing', '/biller/medication-billing', 'card'],
     ['Reports', '/reports', 'chart'],
     ['Billing Claims', '/biller/claims', 'card'],
   ],
@@ -138,7 +141,6 @@ export const NAV_BY_ROLE = {
   [ROLES.NURSE]: [
     ['Nurse Dashboard', '/nurse', 'home'],
     ['Patients', '/patients', 'users'],
-    ['Sessions', '/sessions', 'stethoscope'],
     ['Treatment Workflow', '/workflow', 'activity'],
     ['Schedules', '/schedules', 'calendar'],
   ],
@@ -161,6 +163,7 @@ export const NAV_BY_ROLE = {
     ['Doctor Rounds', '/biller/doctor-rounds', 'stethoscope'],
     ['Physician Billing', '/biller/physician-billing', 'card'],
     ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
+    ['Medication Billing', '/biller/medication-billing', 'card'],
     ['Schedules', '/schedules', 'calendar'],
     ['Reports', '/reports', 'chart'],
   ],

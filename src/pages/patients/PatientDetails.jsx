@@ -21,6 +21,8 @@ import PdfViewer from '../../components/common/pdfViewer';
 import RoundDetailModal from '../../components/doctor/RoundDetailModal';
 import PhysicianRoundForm from '../../components/doctor/PhysicianRoundForm';
 import { emptyPhysicianRound } from '../../constants/physicianRound';
+import { medicationApi } from '../../api/medicationApi';
+import SessionDetailModal from '../../components/common/SessionDetailModal';
 import { API_BASE_URL } from '../../constants';
 
 import {
@@ -220,6 +222,7 @@ const toFileApiUrl = (url = '') => {
 
 const SessionHistoryCard = ({ session }) => {
   const [viewDoc, setViewDoc] = useState(null);
+  const [viewFull, setViewFull] = useState(false);
   const docs = session.documents || [];
   const ts = (d) => (d ? new Date(d).toLocaleString() : '—');
   return (
@@ -229,7 +232,10 @@ const SessionHistoryCard = ({ session }) => {
           <b>{dateOnly(session.completedAt || session.createdAt)}</b>
           <p className="text-xs text-slate-500">Session {session._id}</p>
         </div>
-        <StatusBadge status={session.status} />
+        <div className="flex items-center gap-2">
+          <button className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100" onClick={() => setViewFull(true)}>View detail</button>
+          <StatusBadge status={session.status} />
+        </div>
       </div>
 
       <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-3">
@@ -256,13 +262,14 @@ const SessionHistoryCard = ({ session }) => {
       )}
 
       {viewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setViewDoc(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setViewDoc(null)}>
           <div className="h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b px-4 py-2"><b className="text-sm">{viewDoc.name || 'Document'}</b><button onClick={() => setViewDoc(null)}><X size={18} /></button></div>
             <div className="h-[calc(80vh-44px)]"><PdfViewer apiUrl={toFileApiUrl(viewDoc.fileUrl)} downloadUrl={toFileApiUrl(viewDoc.fileUrl)} name={viewDoc.name} /></div>
           </div>
         </div>
       )}
+      {viewFull && <SessionDetailModal session={session} onClose={() => setViewFull(false)} />}
     </div>
   );
 };
@@ -285,10 +292,29 @@ export default function PatientDetails() {
   const [sessions, setSessions] = useState([]);
   const [claims, setClaims] = useState([]);
   const [doctorCheckups, setDoctorCheckups] = useState([]);
+  const [medHistory, setMedHistory] = useState([]);
+  const [medSummary, setMedSummary] = useState(null);
+  const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
+
+  useEffect(() => {
+    if (tab !== 'medication history' || !id) return;
+    medicationApi.patientHistory(id).then((r) => setMedHistory(r.data?.data || [])).catch(() => setMedHistory([]));
+    medicationApi.monthlySummary(id, {}).then((r) => setMedSummary(r.data?.data || null)).catch(() => setMedSummary(null));
+  }, [tab, id]);
   const [cqiDrafts, setCqiDrafts] = useState({});
 
   const setCqiField = (id, key, value) =>
     setCqiDrafts((d) => ({ ...d, [id]: { ...(d[id] || {}), [key]: value } }));
+
+  const cqiEditable = (field) => {
+    const role = user?.role;
+    if (role === 'admin') return true;
+    if (role === 'doctor') return field === 'patient';
+    if (role === 'social_worker') return field === 'social';
+    if (role === 'technician') return field === 'dietitian';
+    return false;
+  };
+  const canSaveCqi = ['admin', 'doctor', 'social_worker', 'technician'].includes(user?.role);
 
   const saveCqi = async (checkup) => {
     try {
@@ -308,7 +334,6 @@ export default function PatientDetails() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
   const [previewMode, setPreviewMode] = useState(false);
 
   const [addingDocs, setAddingDocs] = useState(false);
@@ -1181,6 +1206,45 @@ export default function PatientDetails() {
       )}
 
 
+      {tab === 'medication history' && (
+        <section className="space-y-4">
+          {medSummary && (
+            <div className="card p-5">
+              <h2 className="text-lg font-bold">Monthly Summary — {medSummary.month}/{medSummary.year}</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-2xl bg-blue-50 p-4"><p className="text-xs font-bold uppercase text-blue-500">Dialysis Sessions</p><p className="text-2xl font-black text-blue-800">{medSummary.dialysisSessions}</p></div>
+                <div className="rounded-2xl bg-emerald-50 p-4"><p className="text-xs font-bold uppercase text-emerald-500">Doctor Rounds</p><p className="text-2xl font-black text-emerald-800">{medSummary.doctorRounds}</p></div>
+                {medSummary.medications?.map((m) => (
+                  <div key={m.name} className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">{m.name}</p><p className="text-xl font-black text-slate-800">{m.total} <span className="text-sm font-medium">{m.unit}</span></p></div>
+                ))}
+              </div>
+              {!medSummary.medications?.length && <p className="mt-3 text-sm text-slate-500">No medications recorded this month.</p>}
+            </div>
+          )}
+
+          <div className="card p-5">
+            <h2 className="mb-3 text-lg font-bold">Medication History</h2>
+            {!medHistory.length && <EmptyState message="No medications recorded for this patient yet." />}
+            <div className="space-y-3">
+              {medHistory.map((group) => (
+                <div key={group.key} className="rounded-2xl border border-slate-200 p-4">
+                  <p className="mb-2 font-bold text-slate-900">{group.date ? dateOnly(group.date) : 'Session'} <span className="text-xs font-normal text-slate-500">Dialysis</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.medications.map((m) => {
+                      const t = m.administrationTime || m.date;
+                      const time = t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                      return (
+                      <span key={m._id} className="rounded-lg bg-blue-50 px-2.5 py-1 text-sm font-semibold text-blue-700">✓ {time && <span className="text-blue-500">{time} · </span>}{m.name} {m.dose}{m.unit === 'min' ? ' min' : ` ${m.unit}`}{m.route ? ` · ${m.route}` : ''}</span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {tab === 'cqi' && (
         <section className="card space-y-4 p-5">
           <div>
@@ -1192,12 +1256,12 @@ export default function PatientDetails() {
             <div key={checkup._id} className="rounded-2xl border border-slate-200 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <b className="text-slate-900">Round {checkup.roundNumber} <span className="text-xs font-normal text-slate-500">• {checkup.month}/{checkup.year}</span></b>
-                <button className="btn-primary py-1.5 text-xs" onClick={() => saveCqi(checkup)}>Save CQI</button>
+                {canSaveCqi && <button className="btn-primary py-1.5 text-xs" onClick={() => saveCqi(checkup)}>Save CQI</button>}
               </div>
               <div className="grid gap-3 lg:grid-cols-3">
-                <div><label className="label">Patient CQI</label><textarea className="input min-h-20" value={cqiDrafts[checkup._id]?.patient ?? (checkup.cqi?.patient || '')} onChange={(e) => setCqiField(checkup._id, 'patient', e.target.value)} /></div>
-                <div><label className="label">Social CQI</label><textarea className="input min-h-20" value={cqiDrafts[checkup._id]?.social ?? (checkup.cqi?.social || '')} onChange={(e) => setCqiField(checkup._id, 'social', e.target.value)} /></div>
-                <div><label className="label">Dietitian CQI</label><textarea className="input min-h-20" value={cqiDrafts[checkup._id]?.dietitian ?? (checkup.cqi?.dietitian || '')} onChange={(e) => setCqiField(checkup._id, 'dietitian', e.target.value)} /></div>
+                <div><label className="label">Patient / Doctor CQI</label><textarea className="input min-h-20 disabled:bg-slate-100" disabled={!cqiEditable('patient')} value={cqiDrafts[checkup._id]?.patient ?? (checkup.cqi?.patient || '')} onChange={(e) => setCqiField(checkup._id, 'patient', e.target.value)} /></div>
+                <div><label className="label">Social CQI</label><textarea className="input min-h-20 disabled:bg-slate-100" disabled={!cqiEditable('social')} value={cqiDrafts[checkup._id]?.social ?? (checkup.cqi?.social || '')} onChange={(e) => setCqiField(checkup._id, 'social', e.target.value)} /></div>
+                <div><label className="label">Dietitian / Technical CQI</label><textarea className="input min-h-20 disabled:bg-slate-100" disabled={!cqiEditable('dietitian')} value={cqiDrafts[checkup._id]?.dietitian ?? (checkup.cqi?.dietitian || '')} onChange={(e) => setCqiField(checkup._id, 'dietitian', e.target.value)} /></div>
               </div>
             </div>
           ))}
@@ -1382,7 +1446,7 @@ export default function PatientDetails() {
         </section>
       )}
 
-      {tab === 'claims' && (
+      {(tab === 'claims' || tab === 'billing history') && (
         <section className="space-y-2">
           {claims.map((claim) => (
             <div className="card p-4 text-sm" key={claim._id}>

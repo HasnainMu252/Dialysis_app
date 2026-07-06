@@ -1,10 +1,14 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { authApi } from '../api/authApi';
 import { setAuthToken } from '../api/axios';
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
+
+// HIPAA automatic-logoff: minutes of inactivity before the session ends.
+const IDLE_TIMEOUT_MS = (Number(import.meta.env.VITE_IDLE_TIMEOUT_MIN) || 15) * 60 * 1000;
 
 const safeJsonParse = (value) => {
   try {
@@ -35,11 +39,17 @@ const login = async (credentials) => {
   const cleanCredentials = {
     email: credentials.email.trim().toLowerCase(),
     password: credentials.password.trim(),
+    ...(credentials.mfaToken ? { mfaToken: String(credentials.mfaToken).trim() } : {}),
   };
 
   const res = await authApi.login(cleanCredentials);
 
   const loginData = res.data?.data;
+
+  // Server asks for a second factor — don't save anything yet.
+  if (loginData?.mfaRequired) {
+    return { mfaRequired: true };
+  }
 
   const nextToken = loginData?.token;
 
@@ -49,6 +59,7 @@ const login = async (credentials) => {
         name: loginData.name,
         email: loginData.email,
         role: loginData.role,
+        mfaEnabled: loginData.mfaEnabled,
       }
     : null;
 
@@ -93,6 +104,27 @@ const login = async (credentials) => {
   useEffect(() => {
     refreshMe();
   }, []);
+
+  // Automatic logoff after a period of inactivity (HIPAA technical safeguard).
+  const lastActivityRef = useRef(Date.now());
+  useEffect(() => {
+    if (!token) return undefined;
+    const bump = () => { lastActivityRef.current = Date.now(); };
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
+        logout();
+        toast('You were signed out due to inactivity.', { icon: '🔒' });
+      }
+    }, 30 * 1000);
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, bump));
+      clearInterval(interval);
+    };
+  }, [token]);
 
   const value = useMemo(
     () => ({

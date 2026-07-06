@@ -245,3 +245,172 @@ tab is summarized rather than fully expanded.
   **View** button (full round detail incl. all comments + CQI) and **Export Excel
   / CSV** (report includes Doctor / Social Worker / Dietitian comments and CQI),
   available to admin and biller.
+## Revision 9 — removed Section D (Laboratory Review) from the monthly batch round forms (Batch Monthly Round + Batch Edit); it remains on the individual Add SOAP form.
+
+---
+
+## Revision 10 — security hardening (HIPAA technical safeguards)
+- **Automatic logoff:** users are signed out after inactivity (default 15 min,
+  configurable via VITE_IDLE_TIMEOUT_MIN) — a HIPAA technical safeguard.
+- **Multi-Factor Authentication (opt-in TOTP):** authenticator-app based (Google
+  Authenticator / Authy / Microsoft Authenticator). New Security page (profile
+  menu → Security & MFA) to enable/disable; login prompts for the 6-digit code
+  when MFA is on. Implemented with Node crypto (no new dependency).
+- **Account lockout:** 5 failed logins locks the account for 15 minutes
+  (brute-force protection); last-login timestamp recorded.
+- **Password policy** enforced on register, admin-create and password-reset:
+  min 8 chars with upper, lower, number and symbol.
+- (Already present and retained: bcrypt cost-12 hashing, helmet security headers
+  incl. HSTS, CORS allow-list, auth rate limiting, authenticated file route,
+  role-based access.)
+
+NOTE: encryption-at-rest, TLS/HTTPS, backups/DR, comprehensive audit-log
+retention, and the administrative/legal parts of HIPAA (risk analysis, BAAs,
+policies, training, third-party attestation) are deployment/organizational and
+are covered in the compliance guidance, not shippable app code.
+
+---
+
+## Revision 11 — audit logging + MFA QR code
+- **Comprehensive audit trail:** a global middleware now records every
+  state-changing request (create/update/delete) and every PHI document access
+  (/files) with user, role, action, path, status code, IP and user-agent. The
+  AuditLog model was expanded accordingly; existing per-action audit calls are
+  kept.
+- **Append-only / tamper-resistant:** there are no update or delete audit
+  endpoints. New read-only **GET /api/v1/audit-logs** (admin only) with
+  pagination and filters (search, area, status, date range).
+- **Admin "Audit Trail" page** (sidebar) to browse the log with filters and
+  paging.
+- **MFA via QR code:** the Security page now shows a scannable **QR code**
+  (Google Authenticator / Authy / Microsoft Authenticator) plus the manual key.
+  Adds the `qrcode.react` dependency — run `npm install` before building.
+
+---
+
+## Revision 12 — Medication Administration & Billing Module (core)
+**Backend**
+- New `MedicationAdministration` collection (patient, session, name, dose, unit,
+  route, quantity, time, given-by, notes, facility, month/year, billing status).
+- Endpoints: record meds for a session (nurse), list, patient medication history
+  (grouped by session), patient monthly summary (sessions + doctor rounds + med
+  totals), medication administration report (pivot: patient × medication, with
+  Excel/CSV export), and medication billing list.
+- Recording once feeds history, monthly summary, the report and billing — no
+  duplicate entry.
+
+**Frontend**
+- **Nurse workflow:** a Medication Administration step (quick-add buttons for
+  Epogen/Heparin/Venofer/Calcitriol/Benadryl/Oxygen/LiquaCel, plus custom rows:
+  name, dose, unit, route, qty) between Vitals and SOAP.
+- **Patient "Medication History" tab** (doctor/biller/nurse/admin) with the
+  grouped-by-session history and a monthly summary (sessions, doctor rounds,
+  medication totals).
+- **Medication Billing** page (biller/admin).
+- **Medication Administration Report** page (pivot table) with Excel/CSV export.
+- Admin sidebar includes the new billing + report pages.
+
+**Simplified / next phase:** PDF export (Excel/CSV done); a single unified Reports
+page with the full facility/doctor/nurse/shift/insurance filter set (the
+individual Dialysis, Medication and Doctor-Round reports exist separately);
+per-medication billing status editing; and shift/facility fields depend on those
+being captured on the patient/session records.
+
+---
+
+## Revision 13 — session detail view, billing grouping, export fix
+- **Session detail view:** each session in the patient's Sessions/Treatment tab
+  now has a "View detail" button opening a modal with the full timeline
+  (booked/created, checked-in, started, completed), vitals, SOAP notes, documents,
+  and the **medications administered during that session**.
+- **Fixed:** nurses (and managers) can no longer cancel a session/appointment
+  that is already completed/cancelled/no-show — the cancel action is hidden with
+  a clear message.
+- **Medication Billing** now shows **one row per patient** (no more repeated
+  rows per medicine) with a **View** button opening that patient's full
+  medication list.
+- **Physician Billing** now shows **one row per patient** (name appears once)
+  with round summary (which rounds, approved/pending counts) and a **View**
+  button to review/approve each round and open full round detail.
+- **Physician Billing Excel/CSV export fixed:** CQI is now three separate columns
+  (Patient / Social / Dietitian) and Access Evaluation is split into its own
+  columns (type, infection, bruit, thrill, ulceration, steal, motor/sensory) —
+  no longer crammed into one cell.
+
+---
+
+## Revision 14 — workflow revision (status-driven, cleanup)
+- **Treatment Workflow is now status-driven:** Scheduled → only Check In;
+  Checked In → only Start Treatment; In Progress → Vitals, Medication, SOAP,
+  Complete, Upload; **Completed → a read-only Treatment Summary** (patient,
+  chair, start/end, duration, nurse, status, medications, vitals, SOAP,
+  documents) with all action buttons hidden. No editing after completion.
+- **Sessions module removed** from the sidebar; `/sessions` now redirects to
+  Treatment Workflow (everything is handled there).
+- **Modal z-index fix:** session/round/billing detail modals now render above
+  everything (z-index raised) so they never open behind tables.
+- **Nurse dashboard stats:** Treatments Completed, Patients Treated, Medications
+  Given, Today's Treatments, Monthly Treatments.
+- **Role-based CQI editing:** doctor edits Patient/Doctor CQI, social worker edits
+  Social CQI, technician edits Dietitian/Technical CQI; admin edits all; everyone
+  else is view-only. The patient profile still shows all CQIs together.
+- **Billing History tab** added to the patient profile (admin/biller).
+- **Reports consolidated** into one Reports hub with tabs (Dialysis & Rounds,
+  Medication); duplicate report nav entries removed.
+
+SIMPLIFIED / NEXT PHASE (stated honestly): the full unified Reports filter matrix
+(facility/nurse/shift/insurance/date-range on every report), PDF export and Print,
+and dedicated Patient-Summary and consolidated Billing report tabs are not all in
+yet — Excel/CSV export and the existing report pages remain. Full per-role sidebar
+restructure was limited to removing duplicates (Sessions, Medication Report) to
+avoid breaking route access.
+
+---
+
+## Revision 15 — individual (per-patient) monthly reports
+- Report endpoints now accept a `patient` filter (id or MRN): Medication Report,
+  Doctor Rounds Report (soap/monthly), and Dialysis Report (dialysis-billing).
+- **Dialysis Report** now supports Excel/CSV export (previously JSON only).
+- New **Individual Patient** tab in Reports: pick a patient + month, then download
+  that patient's whole-month **Medication**, **Doctor Rounds**, and **Dialysis**
+  reports as Excel or CSV.
+
+---
+
+## Revision 16 — medication report: one line per administration
+- The Medication Report Excel/CSV export now writes **one row per medication
+  administration** with separate **Date** and **Time** columns, instead of
+  summing everything onto a single patient row. Columns: Patient, MRN, Date,
+  Time, Medication, Dose, Unit, Route, Quantity, Nurse, Notes — sorted by date.
+- The on-screen summary table still shows the per-patient pivot overview.
+
+---
+
+## Revision 17 — medication views: grouped by date + time
+- **Medication Billing → View popup** now groups administrations by day with a
+  bold date header and shows the **time** for each medication underneath (no more
+  day-3/day-4 mixed together).
+- **Patient Medication History tab** now shows the **time** on each medication.
+- **Individual medication Excel** is one line per administration (Date + Time
+  columns) sorted newest-first, matching the Medication History layout.
+
+---
+
+## Revision 18 — Medication Excel redesign (grouped by session)
+- The Medication Report **Excel** export is fully redesigned with ExcelJS (new
+  backend dependency — run `npm install`):
+  - Data is **grouped by dialysis session**. Each session has a merged
+    **"Dialysis Session #N"** heading, a session info table (Patient, MRN, Date,
+    Time, Nurse, Shift), a medication table (#, Medication, Dose, Unit, Route,
+    Qty, Time), and a **"Total Medications"** count row.
+  - A final **Monthly Summary** sheet: total dialysis sessions, total medications
+    administered, and per-medication totals (dose/qty + times given).
+  - Professional formatting: merged/filled section headers, bold titles, thin
+    borders, alternating row colors, auto-fit columns, frozen title row, and
+    print-ready **A4 landscape** page setup.
+- **CSV** export stays flat (one row per administration) for data processing.
+- Validated end-to-end in-container (sample workbook generated successfully:
+  "Medication Sessions" + "Monthly Summary" sheets).
+
+NOTE: Excel times use the stored (UTC) time; if the clinic isn't on UTC these may
+differ from the browser-local on-screen views — tell me the timezone to convert.

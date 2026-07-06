@@ -12,6 +12,7 @@ import {
   exportPatients,
 } from '../controllers/patientController.js';
 import { uploadExcel } from '../middleware/uploadExcel.js';
+import { getPatientMedicationHistory, getPatientMonthlySummary } from '../controllers/medicationController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { PERMISSIONS } from '../utils/permissions.js';
@@ -51,6 +52,8 @@ router.post('/', authorize(...PERMISSIONS.patientWrite), validate(patientSchema)
 router.post('/bulk-upload', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), uploadExcel.single('file'), bulkUploadPatients);
 router.delete('/bulk-delete', authorize(...PERMISSIONS.patientDelete), bulkDeletePatients);
 router.get('/export', authorize(...PERMISSIONS.patientReadAll), exportPatients);
+router.get('/:idOrMrn/medications', authorize(...PERMISSIONS.patientReadAll), getPatientMedicationHistory);
+router.get('/:idOrMrn/monthly-summary', authorize(...PERMISSIONS.patientReadAll), getPatientMonthlySummary);
 router.get('/:id', authorize(...PERMISSIONS.patientReadAll, ROLES.PATIENT), findPatient);
 router.patch('/:id', authorize(...PERMISSIONS.patientWrite), validate(patientUpdateSchema), updatePatient);
 router.patch('/:id/send-to-biller', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), sendToBiller);

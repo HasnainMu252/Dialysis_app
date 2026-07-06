@@ -3,6 +3,7 @@ import { z } from 'zod';
 import User from '../models/User.js';
 import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../utils/constants.js';
+import { assertStrongPassword } from '../utils/passwordPolicy.js';
 
 export const listUsers = asyncHandler(async (req, res) => {
   const { role, search } = req.query;
@@ -30,6 +31,7 @@ const createSchema = z.object({
 
 export const createUser = asyncHandler(async (req, res) => {
   const payload = createSchema.parse(req.body);
+  assertStrongPassword(payload.password);
   const exists = await User.findOne({ email: payload.email });
   if (exists) throw new ApiError(409, 'A user with this email already exists');
 
@@ -61,6 +63,7 @@ const passwordSchema = z.object({ password: z.string().min(8).max(128) });
 
 export const resetUserPassword = asyncHandler(async (req, res) => {
   const { password } = passwordSchema.parse(req.body);
+  assertStrongPassword(password);
   const user = await User.findById(req.params.id).select('+password');
   if (!user) throw new ApiError(404, 'User not found');
   user.password = password; // hashed by pre-save hook

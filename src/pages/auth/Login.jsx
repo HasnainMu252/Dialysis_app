@@ -19,6 +19,7 @@ const quickUsers = [
 export default function Login() {
   const [form, setForm] = useState({ email: 'admin@test.com', password: '12345678' });
   const [loading, setLoading] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,7 +28,13 @@ export default function Login() {
     event.preventDefault();
     setLoading(true);
     try {
-      const { user } = await login(form);
+      const result = await login(form);
+      if (result?.mfaRequired) {
+        setMfaRequired(true);
+        toast('Enter your authenticator code to continue.', { icon: '🔐' });
+        return;
+      }
+      const { user } = result;
       const redirectTo = location.state?.from?.pathname || roleHome[user.role] || '/';
       toast.success('Login successful');
       navigate(redirectTo, { replace: true });
@@ -69,6 +76,23 @@ export default function Login() {
             required
           />
         </div>
+
+        {mfaRequired && (
+          <div>
+            <label className="label">Authenticator Code</label>
+            <input
+              className="input tracking-[0.4em]"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="123456"
+              value={form.mfaToken || ''}
+              onChange={(event) => setForm({ ...form, mfaToken: event.target.value.replace(/\D/g, '') })}
+              autoFocus
+              required
+            />
+            <p className="mt-1 text-xs text-slate-500">Enter the 6-digit code from your authenticator app.</p>
+          </div>
+        )}
 
         <button disabled={loading} className="btn-primary w-full">
           {loading ? 'Signing in...' : 'Login'}

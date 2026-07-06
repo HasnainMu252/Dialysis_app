@@ -13,6 +13,8 @@ import insurancePersonRoutes from './insurancePersonRoutes.js';
 import doctorRoutes from './doctorRoutes.js';
 import reportRoutes from './reportRoutes.js';
 import userRoutes from './userRoutes.js';
+import auditRoutes from './auditRoutes.js';
+import medicationRoutes from './medicationRoutes.js';
 const router = express.Router();
 
 router.use('/auth', authRoutes);
@@ -29,5 +31,7 @@ router.use('/insurance-person', insurancePersonRoutes);
 router.use('/doctors', doctorRoutes);
 router.use('/reports', reportRoutes);
 router.use('/users', userRoutes);
+router.use('/audit-logs', auditRoutes);
+router.use('/medications', medicationRoutes);
 
 export default router;

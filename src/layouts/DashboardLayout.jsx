@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, Armchair, CalendarDays, CreditCard, BarChart3, Home, LogOut,
-  Menu, Stethoscope, Users, Wrench, Bell, ChevronDown, UserCircle, X,
+  Menu, Stethoscope, Users, Wrench, Bell, ChevronDown, UserCircle, X, ShieldCheck,
 } from 'lucide-react';
 import { ROLE_LABELS } from '../constants';
 import { useAuth } from '../context/AuthContext';
@@ -164,7 +164,7 @@ export default function DashboardLayout() {
                     <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-4 text-white">
                       <div className="flex items-center gap-3"><UserCircle className="h-10 w-10" /><div className="min-w-0"><p className="truncate font-extrabold">{user?.name || 'User'}</p><p className="truncate text-xs text-blue-50">{user?.email}</p><p className="mt-1 text-xs font-bold uppercase tracking-wide text-blue-100">{ROLE_LABELS[user?.role] || user?.role}</p></div></div>
                     </div>
-                    <button onClick={handleLogout} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-red-600 transition hover:bg-red-50"><LogOut size={17} /> Logout</button>
+                    <button onClick={() => { setProfileOpen(false); navigate('/settings/security'); }} className="flex w-full items-center gap-2 border-b px-4 py-3 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-50"><ShieldCheck size={17} /> Security &amp; MFA</button><button onClick={handleLogout} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-red-600 transition hover:bg-red-50"><LogOut size={17} /> Logout</button>
                   </div>
                 )}
               </div>

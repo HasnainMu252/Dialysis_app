@@ -60,8 +60,8 @@ export const getOverviewReport = asyncHandler(async (_req, res) => {
  * Build the monthly SOAP dataset:
  * doctor name, patient names, SOAP details, and per-patient completion count (x/4).
  */
-const buildMonthlySoap = async (month, year) => {
-  const checkups = await DoctorCheckup.find({ month, year })
+const buildMonthlySoap = async (month, year, patientId) => {
+  const checkups = await DoctorCheckup.find({ month, year, ...(patientId ? { patient: patientId } : {}) })
     .populate('doctor', 'name email')
     .populate('patient', 'mrn firstName lastName')
     .sort({ patientMrn: 1, roundNumber: 1 })
@@ -133,7 +133,12 @@ export const getMonthlySoapReport = asyncHandler(async (req, res) => {
     throw new Error('month must be between 1 and 12');
   }
 
-  const report = await buildMonthlySoap(month, year);
+  let patientId;
+  if (req.query.patient) {
+    const pt = req.query.patient.match(/^[0-9a-fA-F]{24}$/) ? await Patient.findById(req.query.patient) : await Patient.findOne({ mrn: req.query.patient });
+    patientId = pt?._id;
+  }
+  const report = await buildMonthlySoap(month, year, patientId);
 
   if (format === 'xlsx' || format === 'csv') {
     const flat = (obj = {}) =>
@@ -143,9 +148,24 @@ export const getMonthlySoapReport = asyncHandler(async (req, res) => {
         .join('; ');
 
     const rows = [];
+    const cqiCols = (cqi = {}) => ({
+      'CQI Patient': cqi.patient || '',
+      'CQI Social': cqi.social || '',
+      'CQI Dietitian': cqi.dietitian || '',
+    });
+    const accessCols = (ae = {}) => ({
+      'Access Type': ae.type || '',
+      'Access Infection': ae.infection || '',
+      'Access Bruit': ae.bruit || '',
+      'Access Thrill': ae.thrill || '',
+      'Access Ulceration': ae.ulceration || '',
+      'Access Steal Syndrome': ae.stealSyndrome || '',
+      'Access Motor Deficit': ae.motorDeficit || '',
+      'Access Sensory Deficit': ae.sensoryDeficit || '',
+    });
     report.patients.forEach((p) => {
       if (!p.rounds.length) {
-        rows.push({ Patient: p.patientName, MRN: p.patientMrn, Month: `${month}/${year}`, Round: '-', Doctor: '-', 'Doctor Comments': '', 'Social Worker Comments': '', 'Dietitian Comments': '', CQI: '', 'Laboratory Review': '', 'Blood Pressure': '', 'Access Evaluation': '', Status: 'no rounds', Approval: '-', Completion: `${p.completedCount}/${p.totalRounds}` });
+        rows.push({ Patient: p.patientName, MRN: p.patientMrn, Month: `${month}/${year}`, Round: '-', Doctor: '-', 'Doctor Comments': '', 'Social Worker Comments': '', 'Dietitian Comments': '', ...cqiCols(), 'Laboratory Review': '', 'Blood Pressure': '', ...accessCols(), Status: 'no rounds', Approval: '-', Completion: `${p.completedCount}/${p.totalRounds}` });
         return;
       }
       p.rounds.sort((a, b) => a.roundNumber - b.roundNumber).forEach((r) => {
@@ -159,10 +179,10 @@ export const getMonthlySoapReport = asyncHandler(async (req, res) => {
           'Doctor Comments': r.doctorComments || r.soap?.doctorNotes || '',
           'Social Worker Comments': r.socialWorkerComments || '',
           'Dietitian Comments': r.dietitianComments || '',
-          CQI: flat(r.cqi),
+          ...cqiCols(r.cqi),
           'Laboratory Review': flat(lab),
           'Blood Pressure': lab.bloodPressure || r.vitals?.bloodPressure || '',
-          'Access Evaluation': flat(r.physicianRound?.accessEvaluation || {}),
+          ...accessCols(r.physicianRound?.accessEvaluation || {}),
           Status: r.status,
           Approval: r.approvalStatus,
           Completion: `${p.completedCount}/${p.totalRounds}`,
@@ -235,9 +255,16 @@ export const getDialysisBilling = asyncHandler(async (req, res) => {
   const year = Number(req.query.year || now.getFullYear());
   const { start, end } = monthRange(month, year);
 
+  let patientId;
+  if (req.query.patient) {
+    const pt = req.query.patient.match(/^[0-9a-fA-F]{24}$/) ? await Patient.findById(req.query.patient) : await Patient.findOne({ mrn: req.query.patient });
+    patientId = pt?._id;
+  }
+
   const sessions = await DialysisSession.find({
     status: 'completed',
     completedAt: { $gte: start, $lt: end },
+    ...(patientId ? { patient: patientId } : {}),
   })
     .populate('patient', 'mrn firstName lastName')
     .populate('chair', 'code chairNumber')
@@ -265,6 +292,27 @@ export const getDialysisBilling = asyncHandler(async (req, res) => {
       billingStatus: s.sentToBillerAt ? 'ready' : 'pending',
     };
   });
+
+  const format = req.query.format;
+  if (format === 'xlsx' || format === 'csv') {
+    const flat = rows.map((r) => ({
+      Patient: r.patientName, MRN: r.patientMrn, Chair: r.chair,
+      'Treatment Date': r.treatmentDate ? new Date(r.treatmentDate).toISOString().slice(0, 10) : '',
+      'Duration (min)': r.durationMinutes ?? '', 'Treatment Count': r.treatmentCount, 'Billing Status': r.billingStatus,
+    }));
+    const ws = XLSX.utils.json_to_sheet(flat);
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="dialysis-report-${year}-${String(month).padStart(2, '0')}.csv"`);
+      return res.send(XLSX.utils.sheet_to_csv(ws));
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Dialysis ${month}-${year}`);
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="dialysis-report-${year}-${String(month).padStart(2, '0')}.xlsx"`);
+    return res.send(buffer);
+  }
 
   res.json({
     success: true,

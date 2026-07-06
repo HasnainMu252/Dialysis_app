@@ -6,6 +6,7 @@ import path from 'path';
 
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/error.js';
+import { auditLogger } from './middleware/auditLogger.js';
 
 const app = express();
 
@@ -62,7 +63,7 @@ app.get('/health', (_req, res) =>
 app.use('/uploads', cors(corsOptions), express.static(path.join(process.cwd(), 'uploads')));
 
 // API routes
-app.use('/api/v1', cors(corsOptions), routes);
+app.use('/api/v1', cors(corsOptions), auditLogger, routes);
 
 app.use(notFound);
 app.use(errorHandler);

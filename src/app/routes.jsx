@@ -14,10 +14,14 @@ import BillerDashboard from '../pages/biller/BillerDashboard';
 import BillerDoctorRounds from '../pages/biller/BillerDoctorRounds';
 import PhysicianBilling from '../pages/biller/PhysicianBilling';
 import DialysisBilling from '../pages/biller/DialysisBilling';
+import MedicationBilling from '../pages/biller/MedicationBilling';
+import MedicationReport from '../pages/reports/MedicationReport';
+import ReportsHub from '../pages/reports/ReportsHub';
 import BatchRoundEntry from '../pages/doctor/BatchRoundEntry';
 import BatchRoundEdit from '../pages/doctor/BatchRoundEdit';
 import CqiPage from '../pages/doctor/CqiPage';
 import UserManagement from '../pages/admin/UserManagement';
+import AuditLogs from '../pages/admin/AuditLogs';
 import InsuranceDashboard from '../pages/insurance/InsuranceDashboard';
 import PatientDashboard from '../pages/patient/PatientDashboard';
 import PatientList from '../pages/patients/PatientList';
@@ -32,6 +36,7 @@ import Claims from '../pages/billing/Claims';
 import TreatmentWorkflow from '../pages/workflow/TreatmentWorkflow';
 import DashboardReports from '../pages/reports/DashboardReports';
 import MenuPage from '../pages/menu/MenuPage';
+import SecuritySettings from '../pages/settings/SecuritySettings';
 import Notifications from '../pages/notifications/Notifications';
 import DoctorDashboard from '../pages/doctor/DoctorDashboard';
 
@@ -65,14 +70,16 @@ export default function AppRoutes() {
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/menu" element={<MenuPage />} />
+          <Route path="/settings/security" element={<SecuritySettings />} />
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN]} />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/audit-logs" element={<AuditLogs />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR]} />}>
-            <Route path="/reports" element={<DashboardReports />} />
+            <Route path="/reports" element={<ReportsHub />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.FRONT_DESK]} />}>
@@ -97,7 +104,7 @@ export default function AppRoutes() {
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.NURSE, ROLES.TECHNICIAN]} />}>
             <Route path="/nurse" element={<NurseDashboard />} />
-            <Route path="/sessions" element={<SessionList />} />
+            <Route path="/sessions" element={<Navigate to="/workflow" replace />} />
             <Route path="/workflow" element={<TreatmentWorkflow />} />
           </Route>
 
@@ -117,6 +124,8 @@ export default function AppRoutes() {
             <Route path="/biller/doctor-rounds" element={<BillerDoctorRounds />} />
             <Route path="/biller/physician-billing" element={<PhysicianBilling />} />
             <Route path="/biller/dialysis-billing" element={<DialysisBilling />} />
+            <Route path="/biller/medication-billing" element={<MedicationBilling />} />
+            <Route path="/reports/medication" element={<MedicationReport />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.INSURANCE_PERSON]} />}>
