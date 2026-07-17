@@ -1,6 +1,6 @@
 import StatusBadge from '../ui/StatusBadge';
 import PatientBioPanel from './PatientBioPanel';
-import { dateOnly, money } from '../../utils/format';
+import { dateOnly } from '../../utils/format';
 
 const VitalsTable = ({ vitals = [] }) => (
   <div className="overflow-x-auto rounded-xl border">
@@ -23,14 +23,13 @@ const SoapList = ({ notes = [] }) => (
   </div>
 );
 
-export default function PatientJourneyPanel({ patient, schedules = [], sessions = [], claims = [], compact = false }) {
+export default function PatientJourneyPanel({ patient, schedules = [], sessions = [], compact = false }) {
   if (!patient) return null;
   return (
     <div className="space-y-4">
-      <PatientBioPanel patient={patient} claims={claims} compact={compact} />
-      <section className="card p-5"><h3 className="mb-3 font-bold">Schedule History</h3><div className="space-y-2">{schedules.map((s) => <div className="rounded-xl border p-3 text-sm" key={s.id || s._id}><div className="flex justify-between gap-2"><b>{s.code}</b><StatusBadge status={s.status} /></div><p>{dateOnly(s.date)} • {s.startTime}-{s.endTime} • Chair {s.chair?.code || s.chairCode || '-'}</p></div>)}{!schedules.length && <p className="text-sm text-slate-500">No schedules found.</p>}</div></section>
+      <PatientBioPanel patient={patient} compact={compact} />
+      <section className="card p-5"><h3 className="mb-3 font-bold">Schedule History</h3><div className="space-y-2">{schedules.map((s) => <div className="rounded-xl border p-3 text-sm" key={s.id || s._id}><div className="flex justify-between gap-2"><b>{s.code}</b><StatusBadge status={s.expired ? 'expired' : s.status} /></div><p>{dateOnly(s.date)} • {s.startTime}-{s.endTime} • Chair {s.chair?.code || s.chairCode || '-'}</p>{(s.bookedByName || s.checkedInAt) && <p className="mt-1 text-xs text-slate-500">{s.bookedByName ? `Booked by ${s.bookedByName}${s.bookedByRole ? ` (${s.bookedByRole})` : ''}` : ''}{s.bookedAt ? ` • ${dateOnly(s.bookedAt)}` : ''}{s.checkedInAt ? ` • Checked in ${dateOnly(s.checkedInAt)}` : ''}</p>}</div>)}{!schedules.length && <p className="text-sm text-slate-500">No schedules found.</p>}</div></section>
       <section className="card p-5"><h3 className="mb-3 font-bold">Session History + Vitals/SOAP</h3><div className="space-y-4">{sessions.map((s) => <div className="rounded-xl border p-3" key={s._id}><div className="mb-3 flex justify-between gap-2"><div><b>{dateOnly(s.createdAt)}</b><p className="text-xs text-slate-500">Chair {s.chair?.code || s.chair?.chairNumber || s.chair || '-'}</p></div><StatusBadge status={s.status} /></div><p className="mb-3 text-sm">{s.treatmentSummary || 'No treatment summary yet.'}</p><VitalsTable vitals={s.vitals || []} /><div className="mt-3"><SoapList notes={s.soapNotes || []} /></div></div>)}{!sessions.length && <p className="text-sm text-slate-500">No sessions found.</p>}</div></section>
-      <section className="card p-5"><h3 className="mb-3 font-bold">Claims / Payment</h3><div className="space-y-2">{claims.map((c) => <div className="rounded-xl border p-3 text-sm" key={c._id}><div className="flex justify-between gap-2"><b>{c.claimReference}</b><StatusBadge status={c.status} /></div><p>{c.month} • Rs {money(c.amount)} • Paid: Rs {money(c.paymentAmount || 0)}</p></div>)}{!claims.length && <p className="text-sm text-slate-500">No claims found.</p>}</div></section>
     </div>
   );
 }

@@ -13,6 +13,8 @@ import {
 } from '../controllers/patientController.js';
 import { uploadExcel } from '../middleware/uploadExcel.js';
 import { getPatientMedicationHistory, getPatientMonthlySummary } from '../controllers/medicationController.js';
+import { listHomeMedications, addHomeMedication } from '../controllers/homeMedicationController.js';
+import { listCqiComments, upsertCqiComment } from '../controllers/cqiCommentController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { PERMISSIONS } from '../utils/permissions.js';
@@ -54,6 +56,10 @@ router.delete('/bulk-delete', authorize(...PERMISSIONS.patientDelete), bulkDelet
 router.get('/export', authorize(...PERMISSIONS.patientReadAll), exportPatients);
 router.get('/:idOrMrn/medications', authorize(...PERMISSIONS.patientReadAll), getPatientMedicationHistory);
 router.get('/:idOrMrn/monthly-summary', authorize(...PERMISSIONS.patientReadAll), getPatientMonthlySummary);
+router.get('/:idOrMrn/home-medications', authorize(...PERMISSIONS.patientReadAll), listHomeMedications);
+router.post('/:idOrMrn/home-medications', authorize(ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR), addHomeMedication);
+router.get('/:idOrMrn/cqi-comments', authorize(...PERMISSIONS.patientReadAll), listCqiComments);
+router.put('/:idOrMrn/cqi-comments', authorize(ROLES.NURSE, ROLES.TECHNICIAN, ROLES.SOCIAL_WORKER, ROLES.ADMIN), upsertCqiComment);
 router.get('/:id', authorize(...PERMISSIONS.patientReadAll, ROLES.PATIENT), findPatient);
 router.patch('/:id', authorize(...PERMISSIONS.patientWrite), validate(patientUpdateSchema), updatePatient);
 router.patch('/:id/send-to-biller', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), sendToBiller);

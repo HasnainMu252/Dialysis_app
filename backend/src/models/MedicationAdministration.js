@@ -24,6 +24,27 @@ const medicationSchema = new mongoose.Schema(
     month: { type: Number, index: true },
     year: { type: Number, index: true },
     billingStatus: { type: String, enum: ['pending', 'billed', 'paid'], default: 'pending' },
+
+    // ---- Lifecycle / never-lose-the-record trail ----
+    // active  -> currently in effect
+    // cancelled -> stopped by a doctor/nurse (still counts in history/reports)
+    // deleted -> soft-removed (data-entry correction); kept but excluded from active views
+    status: { type: String, enum: ['active', 'cancelled', 'deleted'], default: 'active', index: true },
+
+    addedAt: { type: Date, default: Date.now },
+    addedByName: { type: String, trim: true },
+    addedByRole: { type: String, trim: true },
+
+    cancelledAt: { type: Date },
+    cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    cancelledByName: { type: String, trim: true },
+    cancelledByRole: { type: String, trim: true },
+    cancelReason: { type: String, trim: true },
+
+    deletedAt: { type: Date },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    deletedByName: { type: String, trim: true },
+    deletedByRole: { type: String, trim: true },
   },
   { timestamps: true }
 );
@@ -38,3 +59,7 @@ medicationSchema.pre('save', function (next) {
 
 export const MEDICATION_ROUTES = ROUTES;
 export default mongoose.model('MedicationAdministration', medicationSchema);
+
+// Compound indexes for report/usage aggregation under concurrent load.
+medicationSchema.index({ year: 1, month: 1 });
+medicationSchema.index({ patient: 1, date: 1 });

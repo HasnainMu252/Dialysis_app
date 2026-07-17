@@ -414,3 +414,326 @@ avoid breaking route access.
 
 NOTE: Excel times use the stored (UTC) time; if the clinic isn't on UTC these may
 differ from the browser-local on-screen views — tell me the timezone to convert.
+
+---
+
+## Revision 19 — Home medications, medication-usage report, full patient tabs, popup fix
+
+### 1. Home Medications (NEW — meds the patient takes at home, separate from dialysis)
+- New model `models/HomeMedication.js`: a standing home-medication list per patient
+  (name, dose, unit, route, frequency, quantity, prescribedBy, start/end date,
+  status active/discontinued, notes, addedBy/Name/Role). This is separate from
+  `MedicationAdministration` (which stays the per-dialysis-session record).
+- New `controllers/homeMedicationController.js` + routes:
+  - `GET  /patients/:idOrMrn/home-medications` — list (all staff who read patients)
+  - `POST /patients/:idOrMrn/home-medications` — add (**nurse, doctor, admin**)
+  - `PATCH /home-medications/:id` — edit / discontinue / reactivate (nurse, doctor, admin)
+  - `DELETE /home-medications/:id` — hard delete (**admin only**)
+- Frontend: new **Home Medications** patient tab with an add form (visible to
+  nurse/doctor/admin), an active/discontinued table, discontinue/reactivate and
+  admin delete. API in `api/homeMedicationApi.js`.
+
+### 2. Medication Usage report (NEW — "how much dialysis medicine was used")
+- New endpoint `GET /medications/usage` (admin/biller/doctor):
+  - **Daily** (end-of-day) with `?date=YYYY-MM-DD`, or **Monthly** (end-of-month)
+    with `?month=&year=`.
+  - **All patients** or a single patient via `?patient=<id|mrn>`.
+  - Returns per-medication totals (total dose, total qty, administrations,
+    patient count), a per-patient breakdown, and grand totals.
+  - `?format=xlsx` (professional 2-sheet ExcelJS workbook: "Medication Usage" +
+    "By Patient") or `?format=csv`.
+- New util `utils/medicationUsageExcel.js` (validated in-container — workbook
+  generates successfully).
+- Frontend: new **Medication Usage** tab in the Reports hub
+  (`pages/reports/MedicationUsageReport.jsx`) with Day/Month toggle, All/Individual
+  patient toggle, summary cards, totals table, per-patient breakdown, Excel/CSV export.
+
+### 3. Patient view tabs — Front Desk, Nurse, Technician now see ALL tabs (like Admin)
+- `utils/permissions.js`: Admin, Front Desk, Nurse and Technician now share one
+  `FULL_TABS` set (overview, full profile, medical history, insurance form,
+  documents, schedules, sessions, claims, treatment, doctor rounds, cqi,
+  medication history, home medications, billing history). Doctor keeps its focused
+  set + medication history + home medications.
+- NOTE (HIPAA minimum-necessary): this deliberately shows billing/claims tabs to
+  clinical roles per request. Data still loads via `Promise.allSettled`, so any
+  endpoint the role isn't authorized for simply renders empty rather than erroring.
+  If you want those roles to see the tabs but not billing PHI, say so and I'll gate
+  the sensitive tabs back down.
+
+### 4. Treatment-history "View detail" popup fix (was overlapping / mis-positioned)
+- Root cause: the global `.card` utility uses `backdrop-blur`. A `backdrop-filter`
+  makes an element the containing block for `position: fixed` descendants, so a
+  modal rendered inside a card was being trapped/positioned relative to the card
+  instead of the viewport.
+- Fix: new `components/common/Portal.jsx` renders modals into `document.body`.
+  `SessionDetailModal`, `RoundDetailModal`, and the in-card document viewer are now
+  portaled, so `fixed inset-0` overlays the full screen correctly.
+
+All changes syntax-validated (backend `node --check`, frontend JSX check) and the
+new Excel builder was run in-container. Run `npm install` (no new deps) then
+`npm run build` / start the API and test end-to-end.
+
+---
+
+## Revision 20 — Home meds at dialysis time, tech access, remove Billing History from staff
+
+- **Add Home Medications during dialysis (Treatment Workflow):** the workflow now
+  has a "Home Medications" card (add form + current home-med chips) that loads the
+  selected patient's home meds. Visible to **nurse, technician, admin**.
+- **Technician access:** technicians can now add/edit home medications.
+  - Backend: `POST /patients/:idOrMrn/home-medications` and
+    `PATCH /home-medications/:id` now allow `technician` (in addition to
+    admin/nurse/doctor). Delete stays admin-only.
+  - Frontend: `canManageHomeMedication` now includes `technician`, so the Home
+    Medications add form shows for technicians in both the patient tab and the
+    workflow.
+- **Removed Billing History tab from Front Desk, Nurse, Technician:** these three
+  roles now use `STAFF_FULL_TABS` = the full Admin tab set **minus Billing
+  History**. Everything else stays synchronized with Admin (overview, full profile,
+  medical history, insurance form, documents, schedules, sessions, claims,
+  treatment, doctor rounds, cqi, medication history, home medications). Admin still
+  keeps Billing History.
+
+Syntax-validated (backend `node --check`, frontend JSX check). No new dependencies.
+
+---
+
+## Revision 21 — Scalable dashboards, schedule expiry, buffer cleaning, claims removal, date-wise reports, login redesign
+
+### Dashboards (Nurse / Technician / Front Desk)
+- New shared `components/common/PatientBoard.jsx`: searchable + paginated + responsive
+  patient grid that stays clean at any patient count (no more jumbled/overlapping
+  cards at 20+). "View more" opens full patient bio data; "Open full profile"
+  takes staff to the editable detail page (documents + forms). Wired into the
+  Nurse, Technician and Front Desk dashboards.
+- Nurse/Technician dashboards no longer fetch or show Claims.
+
+### Schedule expiry (app-wide)
+- A schedule whose end time has passed and was never checked in is treated as
+  **expired**: it drops out of the treatment/workflow list (`GET /sessions` filters
+  out still-'scheduled' sessions whose schedule endAt < now; pass `?includeExpired=1`
+  to override) but remains in the Schedule list flagged "Expired".
+
+### Schedule details in the list
+- `formatSchedule` + `listSchedules` now return **booked-by name/role**, **booking
+  time**, **check-in time** (batched single-query join from the linked session) and
+  an **expired** flag. Surfaced in `ScheduleCard` (dashboards + Schedules page) and
+  the journey panel.
+
+### Buffer / cleaning (Technician)
+- Finding: completion already set the chair to `cleaning`, but nothing used
+  `bufferMinutes` or returned the chair to service. Now: on completion the chair
+  enters a cleaning window of `schedule.bufferMinutes` (default 30) via new
+  `Chair.cleaningUntil`; `listChairs` lazily auto-releases chairs whose window has
+  elapsed back to `available` (also releases finished maintenance windows).
+
+### Home medications in previews
+- The session preview (`SessionDetailModal`) now shows the patient's home
+  medications alongside the dialysis medications given.
+
+### Removals
+- **Claims removed from the app UI**: patient Claims tab, "Billing Claims" nav
+  links, and the "Claims / Payment" + "Payment Snapshot" preview sections are gone.
+  (Biller's Physician/Dialysis/Medication Billing pages were left intact so the
+  biller role still functions — say the word to remove those too.)
+- **Treatment History tab removed** — the Sessions tab is now the single
+  treatment/session view (roles that only had Treatment now use Sessions).
+
+### Reports — date-wise
+- `GET /medications/usage` now supports a **date range** (`?from=&to=`) and always
+  returns a **byDate** breakdown (per-day medications, administrations, qty,
+  patients). The usage Excel gains a **By Date** sheet. The Reports > Medication
+  Usage page adds a "Date range (date-wise)" mode and a Date-wise table; for an
+  individual patient it shows exactly which dates medications were given.
+
+### Performance
+- Added compound indexes on MedicationAdministration (`year+month`, `patient+date`,
+  `date`) for report/usage aggregation under concurrent load. Schedule check-in
+  enrichment uses a single batched query. (Note: true load testing / Atlas
+  connection-pool tuning is an environment task, not code.)
+
+### Login
+- Redesigned as a two-panel screen: left auto-rotating image/slider panel, right
+  login form (`AuthLayout` is now full-bleed).
+
+Syntax-validated (backend `node --check` × 79 files, frontend JSX check) and the
+usage Excel (now 3 sheets) was run in-container. No new dependencies.
+
+---
+
+## Revision 22 — Technician is medication read-only; session notes; medication add+delete (no edit)
+
+### Technician: NO medication write access (reverses Rev 20)
+- Technicians can **view** dialysis medications and home medications, but can no
+  longer add or edit either.
+- Backend: `TECHNICIAN` removed from `POST /medications/session/:sessionId`,
+  `POST /patients/:idOrMrn/home-medications` and `PATCH /home-medications/:id`.
+  Enforced server-side, not just hidden in the UI.
+- Frontend: `canManageDialysisMedication` / `canManageHomeMedication` exclude
+  technician, so both add forms hide and the med lists render read-only for them.
+
+### Technician's write surface: session notes during dialysis
+- New `technicianNotes[]` on `DialysisSession`: **accessType dropdown**
+  (Fistula / Graft / Catheter / AV Fistula / AV Graft / Other) **+ free-text comment**,
+  with author name, role and timestamp.
+- New endpoints: `POST /sessions/:id/technician-notes`,
+  `DELETE /sessions/:id/technician-notes/:noteId` (technician, nurse, doctor, admin).
+- Treatment Workflow gains a **"Session Notes / Comments"** card (dropdown + free
+  text + add, and a list with ✕ delete).
+- Notes render **alongside the SOAP notes** in the Session Detail popup, so nurses,
+  doctors and admins see any technician comment for that dialysis session.
+
+### Medications: CRUD is now add + delete (no edit)
+- New `DELETE /medications/:id` (nurse / doctor / admin, audit-logged).
+- Every saved dialysis medication chip in the workflow now has a small **✕** to
+  delete it; a "Given this session (n)" list shows what's recorded so far and
+  refreshes after each save.
+- Home medications: **nurse and doctor** (and admin) can now delete as well as add —
+  each row has a ✕ Delete, in the patient tab and as a ✕ on the workflow chips.
+  To correct an entry, delete it and add a new one.
+
+### Net permission matrix (medications)
+| Action | Admin | Doctor | Nurse | Technician |
+|---|---|---|---|---|
+| View dialysis + home meds | ✔ | ✔ | ✔ | ✔ (view only) |
+| Add / delete dialysis meds | ✔ | ✔ | ✔ | ✘ |
+| Add / edit / delete home meds | ✔ | ✔ | ✔ | ✘ |
+| Add session note (access type + comment) | ✔ | ✔ | ✔ | ✔ |
+
+Syntax-validated (backend `node --check` × 79 files, frontend JSX check).
+No new dependencies.
+
+---
+
+## Revision 23 — Session notes show WHO added them (Nurse / Technician / Doctor)
+
+- Session notes already stored the author, but the UI barely surfaced it and the
+  session detail hard-labelled every note "Technician notes" even when a nurse
+  wrote it.
+- New `components/common/NoteAuthor.jsx`: a colour-coded role badge + author name
+  + timestamp, derived from the note's stored `authorRole`. A note added by a nurse
+  reads **Nurse · <name>**; one added by a technician reads **Technician · <name>**
+  (Doctor and Admin also supported).
+- Wired into the Treatment Workflow note list and the Session Detail popup.
+- Session Detail heading renamed "Technician notes" -> **"Session notes / comments"**,
+  since nurses and doctors can author notes too.
+- Verified at runtime that a nurse's note persists `authorRole: 'nurse'` and a
+  technician's persists `authorRole: 'technician'`.
+
+Syntax-validated. No new dependencies.
+
+---
+
+## Revision 24 — Workflow refactor, medication history/soft-delete, role SOAP presets, CQI comments, biller med activity
+
+### TreatmentWorkflow refactored into components
+- Extracted the medication and session-notes sections out of the 2.4k-line page
+  into `components/workflow/MedicationCard.jsx` and
+  `components/workflow/SessionNotesCard.jsx` (page ~400 lines lighter). Same UI,
+  modular and easier to maintain.
+
+### Medication list is vertical + full lifecycle (never lose the record)
+- Medication entry rows are now **vertical** (label-over-field), not a wide grid.
+- **Soft-delete:** `DELETE /medications/:id` keeps the row (`status='deleted'`,
+  `deletedAt/By/Name/Role`) instead of hard-removing.
+- **Cancel/stop:** new `PATCH /medications/:id/cancel` (doctor/nurse/admin) sets
+  `status='cancelled'` with `cancelledAt/By` + optional reason.
+- Every medication stamps `addedAt/By/Name/Role`. The saved-med list shows a
+  status badge (Active / Cancelled / Removed) with the full add/stop/remove trail,
+  plus **Stop** and **Delete** actions.
+- New `GET /medications/history` returns the full trail (biller-readable).
+- Reports/usage now exclude soft-`deleted` meds but keep `cancelled` ones (so a
+  stopped med still shows in monthly/individual reports with its stop date).
+
+### Role-specific access presets + "Other"
+- **Nurse SOAP** gains an Access-site picker: **Catheter, Tunnel, Quinton, Other**
+  (Other -> free text). Persisted on the SOAP note and shown in session detail.
+- **Technician session notes**: **AV, Fistula, AV Graft, Other** (Other -> free text).
+- `accessType` on session notes is now free-form (any preset or custom value),
+  with a dedicated `accessOther` field.
+
+### CQI comments — nurse / technician / social worker
+- New `CqiComment` model + endpoints: `GET/PUT /patients/:id/cqi-comments`,
+  `DELETE /cqi-comments/:id`. Each of the 3 roles keeps ONE editable comment per
+  patient (upsert; unique on patient+author), with a phase (during / after / general).
+- New reusable `components/common/CqiPanel.jsx` shown in three places:
+  the **Treatment Workflow** (during dialysis), a new **CQI Comments** patient tab,
+  and **instantly on the Social Worker dashboard** patient panel.
+
+### Biller can watch medication activity
+- New `components/common/MedicationActivity.jsx` on the Medication History tab: a
+  read-only timeline of when each med was added / stopped / removed and by whom
+  (reads `GET /medications/history`).
+
+Syntax-validated (backend `node --check` × 82, frontend JSX check) and model
+lifecycle transitions verified in-container. No new dependencies. Note: the new
+CqiComment unique index (patient+author) builds automatically on first write.
+
+---
+
+## Revision 25 — Home-med lifecycle history + medication changes in reports (weekly too)
+
+### Home medications now have the same lifecycle trail as dialysis meds
+- Model gains `addedAt`, cancel trail (`cancelledAt/By/Name/Role`, `cancelReason`),
+  soft-delete trail (`deletedAt/By/Name/Role`) and statuses
+  active / discontinued / cancelled / deleted.
+- Stopping a home med (Stop button) now records who/when + optional reason; delete
+  is now a SOFT delete (row kept, `status='deleted'`). List hides soft-deleted by
+  default (`?includeInactive=1` to include).
+- Patient Home Medications tab shows the status (Active / Stopped / Removed) with
+  the stop/removed trail and the added date.
+
+### Medication changes in reports (monthly, weekly, individual)
+- Usage report gains a **Weekly** scope (`?week=YYYY-MM-DD`, Mon–Sun) alongside
+  daily / monthly / date-range.
+- New **lifecycle events** in the usage payload: every add / stop / remove for both
+  dialysis and home meds within the period, with medication, patient, who and when,
+  plus an added/stopped/removed summary. Respects the individual-patient filter.
+- Reports > Medication Usage renders a **"Medication changes (added / stopped /
+  removed)"** table; the usage Excel gains a **"Med Changes"** sheet.
+- `GET /medications/history` now also includes home-medication activity, so the
+  biller's **Medication Activity** timeline shows dialysis + home meds with a
+  Source column.
+
+Syntax-validated (backend `node --check` × 82, frontend JSX) and home-med lifecycle
+transitions + the 4-sheet usage Excel verified in-container. No new dependencies.
+
+---
+
+## Revision 26 — Home meds in the workflow now match the dialysis card (timestamp + history)
+
+- The Treatment Workflow's home-medication saved list was still plain cards with
+  only Active/Discontinued and no trail. Replaced with new
+  `components/workflow/HomeMedicationCard.jsx` matching the dialysis MedicationCard:
+  **Active / Stopped / Removed** badge, added timestamp + author, stop/removed
+  trail (who + when + reason), and **Stop / Reactivate + Delete** actions.
+- Workflow + patient Home Medications tab now load with `includeInactive=1`, so
+  stopped and soft-removed home meds stay visible with their full history instead
+  of disappearing.
+- Added `homeMedicationApi.cancel()` / `.reactivate()`; the workflow header badge
+  now shows the ACTIVE count.
+
+Syntax-validated (frontend JSX, backend node --check). No new dependencies.
+
+---
+
+## Revision 27 — Cancel/status detail in the Medication Report + home meds in completed summary
+
+### Medication Report (medication-report-*.xlsx / individual) now shows lifecycle
+- The session-grouped Medication Report workbook med table gains **Status** and
+  **Stopped / Note** columns: each medication shows Active / Stopped / Removed, and
+  stopped rows show the reason + who + when (e.g. "due to issue in vain — nurse
+  (2026-07-16 12:19)"). Status cell is colour-coded.
+- CSV export of the same report gains Status, Stopped/Removed By, Stop Reason and
+  Stopped/Removed At columns.
+- (The Usage report already carried this in its "Med Changes" sheet; now the
+  individual/monthly Medication Report is in sync too.)
+
+### Completed treatment summary shows what was recorded
+- After completing a treatment, the read-only summary now shows both the
+  **Medications** (with Active/Stopped markers + stop reason) AND a new
+  **Home Medications** block (active/stopped/removed), so you can see exactly which
+  dialysis and home meds were on the patient for that session.
+
+Syntax-validated (backend node --check × 82, frontend JSX) and the report workbook
+status/reason columns verified in-container. No new dependencies.

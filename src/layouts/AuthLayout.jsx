@@ -1,2 +1,9 @@
 import { Outlet } from 'react-router-dom';
-export default function AuthLayout(){return <div className="min-h-screen grid place-items-center bg-gradient-to-br from-blue-50 to-slate-100 p-4"><Outlet/></div>}
+// Full-bleed shell so the login screen can render a two-panel (slider + form) layout.
+export default function AuthLayout() {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Outlet />
+    </div>
+  );
+}

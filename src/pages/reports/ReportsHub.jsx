@@ -2,11 +2,13 @@ import { useState } from 'react';
 import PageHeader from '../../components/common/PageHeader';
 import DashboardReports from './DashboardReports';
 import MedicationReport from './MedicationReport';
+import MedicationUsageReport from './MedicationUsageReport';
 import IndividualPatientReport from './IndividualPatientReport';
 
 const TABS = [
   { key: 'dialysis', label: 'Dialysis & Rounds' },
   { key: 'medication', label: 'Medication Report' },
+  { key: 'usage', label: 'Medication Usage' },
   { key: 'individual', label: 'Individual Patient' },
 ];
 
@@ -22,6 +24,7 @@ export default function ReportsHub() {
       </div>
       {tab === 'dialysis' && <DashboardReports />}
       {tab === 'medication' && <MedicationReport />}
+      {tab === 'usage' && <MedicationUsageReport />}
       {tab === 'individual' && <IndividualPatientReport />}
     </div>
   );

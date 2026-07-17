@@ -22,7 +22,11 @@ import RoundDetailModal from '../../components/doctor/RoundDetailModal';
 import PhysicianRoundForm from '../../components/doctor/PhysicianRoundForm';
 import { emptyPhysicianRound } from '../../constants/physicianRound';
 import { medicationApi } from '../../api/medicationApi';
+import { homeMedicationApi, HOME_MED_ROUTES, HOME_MED_UNITS, HOME_MED_FREQUENCIES } from '../../api/homeMedicationApi';
 import SessionDetailModal from '../../components/common/SessionDetailModal';
+import Portal from '../../components/common/Portal';
+import CqiPanel from '../../components/common/CqiPanel';
+import MedicationActivity from '../../components/common/MedicationActivity';
 import { API_BASE_URL } from '../../constants';
 
 import {
@@ -46,6 +50,7 @@ import {
   canEditPatient,
   canUploadPatientDocuments,
   canAddDoctorRound,
+  canManageHomeMedication,
   patientTabsForRole,
   isTabReadOnly,
 } from '../../utils/permissions';
@@ -262,12 +267,14 @@ const SessionHistoryCard = ({ session }) => {
       )}
 
       {viewDoc && (
+        <Portal>
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setViewDoc(null)}>
           <div className="h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b px-4 py-2"><b className="text-sm">{viewDoc.name || 'Document'}</b><button onClick={() => setViewDoc(null)}><X size={18} /></button></div>
             <div className="h-[calc(80vh-44px)]"><PdfViewer apiUrl={toFileApiUrl(viewDoc.fileUrl)} downloadUrl={toFileApiUrl(viewDoc.fileUrl)} name={viewDoc.name} /></div>
           </div>
         </div>
+        </Portal>
       )}
       {viewFull && <SessionDetailModal session={session} onClose={() => setViewFull(false)} />}
     </div>
@@ -281,6 +288,7 @@ export default function PatientDetails() {
 
   const allowEdit = canEditPatient(user?.role);
   const allowSchedule = canCreateSchedule(user?.role);
+  const allowHomeMed = canManageHomeMedication(user?.role);
   const allowUploadDocs = canUploadPatientDocuments(user?.role);
 
   const [patient, setPatient] = useState(null);
@@ -294,6 +302,11 @@ export default function PatientDetails() {
   const [doctorCheckups, setDoctorCheckups] = useState([]);
   const [medHistory, setMedHistory] = useState([]);
   const [medSummary, setMedSummary] = useState(null);
+  const [homeMeds, setHomeMeds] = useState([]);
+  const [homeMedsLoading, setHomeMedsLoading] = useState(false);
+  const emptyHomeMed = { name: '', dose: '', unit: 'mg', route: 'Oral', frequency: 'Once daily', quantity: 1, prescribedBy: '', notes: '' };
+  const [homeMedForm, setHomeMedForm] = useState(emptyHomeMed);
+  const [savingHomeMed, setSavingHomeMed] = useState(false);
   const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
 
   useEffect(() => {
@@ -301,6 +314,59 @@ export default function PatientDetails() {
     medicationApi.patientHistory(id).then((r) => setMedHistory(r.data?.data || [])).catch(() => setMedHistory([]));
     medicationApi.monthlySummary(id, {}).then((r) => setMedSummary(r.data?.data || null)).catch(() => setMedSummary(null));
   }, [tab, id]);
+
+  const loadHomeMeds = () => {
+    if (!id) return;
+    setHomeMedsLoading(true);
+    homeMedicationApi.list(id, { includeInactive: 1 })
+      .then((r) => setHomeMeds(r.data?.data || []))
+      .catch(() => setHomeMeds([]))
+      .finally(() => setHomeMedsLoading(false));
+  };
+  useEffect(() => {
+    if (tab !== 'home medication' || !id) return;
+    loadHomeMeds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, id]);
+
+  const saveHomeMed = async () => {
+    if (!homeMedForm.name.trim()) { toast.error('Enter a medication name'); return; }
+    setSavingHomeMed(true);
+    try {
+      await homeMedicationApi.add(id, { ...homeMedForm, dose: Number(homeMedForm.dose) || 0, quantity: Number(homeMedForm.quantity) || 1 });
+      toast.success('Home medication added');
+      setHomeMedForm(emptyHomeMed);
+      loadHomeMeds();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to add home medication');
+    } finally { setSavingHomeMed(false); }
+  };
+
+  const toggleHomeMed = async (med) => {
+    try {
+      if (med.status === 'active') {
+        const reason = window.prompt(`Stop "${med.name}"? Optional reason:`, '');
+        if (reason === null) return;
+        await homeMedicationApi.update(med._id, { status: 'discontinued', cancelReason: reason || '' });
+      } else {
+        await homeMedicationApi.update(med._id, { status: 'active' });
+      }
+      loadHomeMeds();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const deleteHomeMed = async (med) => {
+    if (!window.confirm(`Delete "${med.name}" from this patient's home medications?`)) return;
+    try {
+      await homeMedicationApi.remove(med._id);
+      toast.success('Deleted');
+      loadHomeMeds();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Delete failed (admin only)');
+    }
+  };
   const [cqiDrafts, setCqiDrafts] = useState({});
 
   const setCqiField = (id, key, value) =>
@@ -1208,6 +1274,7 @@ export default function PatientDetails() {
 
       {tab === 'medication history' && (
         <section className="space-y-4">
+          <MedicationActivity patientId={id} />
           {medSummary && (
             <div className="card p-5">
               <h2 className="text-lg font-bold">Monthly Summary — {medSummary.month}/{medSummary.year}</h2>
@@ -1242,6 +1309,92 @@ export default function PatientDetails() {
               ))}
             </div>
           </div>
+        </section>
+      )}
+
+      {tab === 'home medication' && (
+        <section className="space-y-4">
+          <div className="card p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold">Home Medications</h2>
+                <p className="text-sm text-slate-500">Medications the patient takes at home — separate from medications given during dialysis. Added by nurse or doctor.</p>
+              </div>
+            </div>
+
+            {allowHomeMed && (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">Add a home medication</p>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
+                  <input className="input md:col-span-3" placeholder="Medication name" value={homeMedForm.name} onChange={(e) => setHomeMedForm((f) => ({ ...f, name: e.target.value }))} />
+                  <input className="input md:col-span-1" type="number" placeholder="Dose" value={homeMedForm.dose} onChange={(e) => setHomeMedForm((f) => ({ ...f, dose: e.target.value }))} />
+                  <select className="input md:col-span-1" value={homeMedForm.unit} onChange={(e) => setHomeMedForm((f) => ({ ...f, unit: e.target.value }))}>{HOME_MED_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}</select>
+                  <select className="input md:col-span-2" value={homeMedForm.route} onChange={(e) => setHomeMedForm((f) => ({ ...f, route: e.target.value }))}>{HOME_MED_ROUTES.map((r) => <option key={r} value={r}>{r}</option>)}</select>
+                  <select className="input md:col-span-3" value={homeMedForm.frequency} onChange={(e) => setHomeMedForm((f) => ({ ...f, frequency: e.target.value }))}>{HOME_MED_FREQUENCIES.map((fq) => <option key={fq} value={fq}>{fq}</option>)}</select>
+                  <input className="input md:col-span-2" type="number" placeholder="Qty" value={homeMedForm.quantity} onChange={(e) => setHomeMedForm((f) => ({ ...f, quantity: e.target.value }))} />
+                  <input className="input md:col-span-6" placeholder="Prescribed by (physician)" value={homeMedForm.prescribedBy} onChange={(e) => setHomeMedForm((f) => ({ ...f, prescribedBy: e.target.value }))} />
+                  <input className="input md:col-span-6" placeholder="Notes (optional)" value={homeMedForm.notes} onChange={(e) => setHomeMedForm((f) => ({ ...f, notes: e.target.value }))} />
+                </div>
+                <div className="mt-3">
+                  <button type="button" className="btn-primary" onClick={saveHomeMed} disabled={savingHomeMed}>{savingHomeMed ? 'Saving…' : '+ Add Home Medication'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="card p-5">
+            {homeMedsLoading && <p className="text-sm text-slate-400">Loading…</p>}
+            {!homeMedsLoading && !homeMeds.length && <EmptyState message="No home medications recorded for this patient yet." />}
+            {!!homeMeds.length && (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] text-left text-sm">
+                  <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-3 py-3">Medication</th>
+                      <th className="px-3 py-3">Dose</th>
+                      <th className="px-3 py-3">Route</th>
+                      <th className="px-3 py-3">Frequency</th>
+                      <th className="px-3 py-3">Prescribed by</th>
+                      <th className="px-3 py-3">Status</th>
+                      <th className="px-3 py-3">Added by</th>
+                      {allowHomeMed && <th className="px-3 py-3 text-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {homeMeds.map((m) => (
+                      <tr key={m._id} className={m.status === 'discontinued' ? 'text-slate-400' : ''}>
+                        <td className="px-3 py-3 font-semibold">{m.name}{m.notes ? <span className="block text-xs font-normal text-slate-400">{m.notes}</span> : null}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{m.dose}{m.unit ? ` ${m.unit}` : ''}{m.quantity > 1 ? ` × ${m.quantity}` : ''}</td>
+                        <td className="px-3 py-3">{m.route}</td>
+                        <td className="px-3 py-3">{m.frequency}</td>
+                        <td className="px-3 py-3">{m.prescribedBy || '—'}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-lg px-2 py-1 text-xs font-bold ${m.status === 'active' ? 'bg-emerald-50 text-emerald-700' : m.status === 'deleted' ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-700'}`}>{m.status === 'active' ? 'Active' : m.status === 'deleted' ? 'Removed' : 'Stopped'}</span>
+                          {m.cancelledAt && <span className="mt-1 block text-[11px] text-amber-600">Stopped {new Date(m.cancelledAt).toLocaleDateString()}{m.cancelledByName ? ` by ${m.cancelledByName}` : ''}{m.cancelReason ? ` — ${m.cancelReason}` : ''}</span>}
+                          {m.deletedAt && <span className="mt-1 block text-[11px] text-slate-500">Removed {new Date(m.deletedAt).toLocaleDateString()}{m.deletedByName ? ` by ${m.deletedByName}` : ''}</span>}
+                        </td>
+                        <td className="px-3 py-3 text-xs text-slate-500">{m.addedByName || '—'}{m.addedByRole ? ` (${m.addedByRole})` : ''}{(m.addedAt || m.createdAt) ? <span className="block text-slate-400">{new Date(m.addedAt || m.createdAt).toLocaleDateString()}</span> : null}</td>
+                        {allowHomeMed && (
+                          <td className="whitespace-nowrap px-3 py-3 text-right">
+                            <button className="btn-light py-1 text-xs" onClick={() => toggleHomeMed(m)}>{m.status === 'active' ? 'Stop' : 'Reactivate'}</button>
+                            <button className="ml-2 inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-100" onClick={() => deleteHomeMed(m)}><X size={12} /> Delete</button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {tab === 'cqi comments' && (
+        <section className="card p-5">
+          <h2 className="mb-1 text-lg font-bold">CQI Comments</h2>
+          <p className="mb-4 text-sm text-slate-500">Continuous quality improvement notes from nurse, technician and social worker. Each role keeps their own comment.</p>
+          <CqiPanel patientId={id} defaultPhase="general" />
         </section>
       )}
 

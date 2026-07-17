@@ -33,6 +33,21 @@ export const createChair = asyncHandler(async (req, res) => {
 });
 
 export const listChairs = asyncHandler(async (req, res) => {
+  const now = new Date();
+
+  // Auto-release chairs whose cleaning/buffer window has elapsed. This is what
+  // makes the post-dialysis "cleaning" state time-boxed by bufferMinutes instead
+  // of sticking until a manual clearance.
+  await Chair.updateMany(
+    { status: 'cleaning', cleaningUntil: { $ne: null, $lte: now } },
+    { $set: { status: 'available', lastCleanedAt: now, cleaningUntil: null } }
+  );
+  // Also release finished maintenance windows for consistency.
+  await Chair.updateMany(
+    { status: 'maintenance', maintenanceUntil: { $ne: null, $lte: now } },
+    { $set: { status: 'available', maintenanceUntil: null } }
+  );
+
   const chairs = await Chair.find().sort('chairNumber');
 
   res.json({

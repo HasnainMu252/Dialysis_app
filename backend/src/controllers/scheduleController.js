@@ -4,6 +4,7 @@ import asyncHandler from 'express-async-handler';
 import Schedule from '../models/Schedule.js';
 import Patient from '../models/Patient.js';
 import Chair from '../models/Chair.js';
+import DialysisSession from '../models/DialysisSession.js';
 import { ApiError } from '../utils/apiError.js';
 import { writeAudit } from '../utils/audit.js';
 import {
@@ -17,7 +18,7 @@ import {
   ACTIVE_SCHEDULE_STATUSES,
 } from '../services/schedulingService.js';
 
-const formatSchedule = (doc) => {
+const formatSchedule = (doc, extra = {}) => {
   if (!doc) return null;
   const s = doc.toJSON ? doc.toJSON() : doc;
 
@@ -25,6 +26,11 @@ const formatSchedule = (doc) => {
     s.patient && (s.patient.firstName || s.patient.lastName)
       ? `${s.patient.firstName || ''} ${s.patient.lastName || ''}`.trim()
       : undefined;
+
+  const now = extra.now || new Date();
+  const openStatuses = ['Pending', 'Scheduled'];
+  // A schedule "expires" when its end time has passed and it was never checked in / started.
+  const expired = !!(s.endAt && new Date(s.endAt) < now && openStatuses.includes(s.status));
 
   return {
     id: s._id,
@@ -43,11 +49,19 @@ const formatSchedule = (doc) => {
     date: s.date,
     startTime: s.startTime,
     endTime: s.endTime,
+    startAt: s.startAt,
+    endAt: s.endAt,
     durationHours: s.durationHours,
     bufferMinutes: s.bufferMinutes,
     status: s.status,
+    expired,
     notes: s.notes,
     createdAt: s.createdAt,
+    // Booking + check-in audit for the schedule list.
+    bookedByName: s.createdBy?.name,
+    bookedByRole: s.createdBy?.role,
+    bookedAt: s.createdAt,
+    checkedInAt: extra.checkedInAt,
   };
 };
 
@@ -211,12 +225,20 @@ export const listSchedules = asyncHandler(async (req, res) => {
       select: 'code chairNumber name status type location',
       strictPopulate: false,
     })
+    .populate({ path: 'createdBy', select: 'name role', strictPopulate: false })
     .sort({ date: 1, startTime: 1 });
+
+  // Batch-join check-in times from the linked dialysis sessions (single query).
+  const sessions = await DialysisSession.find({ schedule: { $in: schedules.map((s) => s._id) } })
+    .select('schedule checkedInAt')
+    .lean();
+  const checkInMap = new Map(sessions.map((se) => [String(se.schedule), se.checkedInAt]));
+  const now = new Date();
 
   res.json({
     success: true,
     count: schedules.length,
-    schedules: schedules.map(formatSchedule),
+    schedules: schedules.map((s) => formatSchedule(s, { now, checkedInAt: checkInMap.get(String(s._id)) })),
   });
 });
 

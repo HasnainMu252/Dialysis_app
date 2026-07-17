@@ -27,6 +27,8 @@ const vitalsSchema = new mongoose.Schema(
 
 const soapSchema = new mongoose.Schema(
   {
+    access: { type: String, trim: true, default: '' },
+    accessOther: { type: String, trim: true, default: '' },
     subjective: String,
     objective: String,
     assessment: String,
@@ -96,6 +98,33 @@ const sessionSchema = new mongoose.Schema(
 
     vitals: [vitalsSchema],
     soapNotes: [soapSchema],
+
+    /**
+     * Technician observations recorded DURING dialysis.
+     * Technicians cannot touch medications — this is their write surface.
+     * accessType captures how the patient was accessed (e.g. Fistula), plus a
+     * free-text comment. Shown alongside SOAP in the session detail so nurses
+     * and doctors can see them.
+     */
+    technicianNotes: [
+      new mongoose.Schema(
+        {
+          accessType: {
+            type: String,
+            trim: true,
+            default: '',
+          },
+          // Free text when accessType is "Other".
+          accessOther: { type: String, trim: true, default: '' },
+          comment: { type: String, trim: true },
+          authorName: String,
+          authorRole: String,
+          author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          createdAt: { type: Date, default: Date.now },
+        },
+        { _id: true }
+      ),
+    ],
 
     documents: [
       new mongoose.Schema(

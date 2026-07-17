@@ -46,6 +46,19 @@ export const canAddDoctorRound = (role) => [ROLES.ADMIN, ROLES.DOCTOR].includes(
 
 export const canViewReports = (role) => [ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR].includes(role);
 
+/* Home medications: Doctor, Nurse and Admin may add/delete.
+ * Technicians are VIEW-ONLY for all medications (dialysis + home). */
+export const canManageHomeMedication = (role) => [ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR].includes(role);
+
+/* Dialysis medications recorded during a session: same writers as home meds.
+ * Medications are add + delete only (no in-place edit). */
+export const canManageDialysisMedication = (role) => [ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR].includes(role);
+
+/* Technician's write surface during dialysis: access-type + free-text notes.
+ * Nurses/doctors/admins may also leave notes. */
+export const canAddSessionNote = (role) =>
+  [ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR, ROLES.TECHNICIAN].includes(role);
+
 /* ------------------------------------------------------------------ *
  * Patient-detail tabs per role (single source of truth for the UI)
  * ------------------------------------------------------------------ */
@@ -57,47 +70,53 @@ export const PATIENT_TAB_LABELS = {
   documents: 'Documents',
   schedules: 'Schedules',
   sessions: 'Sessions',
-  treatment: 'Treatment History',
   'doctor rounds': 'Doctor Rounds',
-  claims: 'Claims',
   cqi: 'CQI',
   'medication history': 'Medication History',
+  'home medication': 'Home Medications',
+  'cqi comments': 'CQI Comments',
   'billing history': 'Billing History',
 };
 
+/* Full patient-detail tab set (matches Admin). Roles pointed here see everything.
+ * NOTE: "Treatment History" was removed — the Sessions tab is the single source
+ * of treatment + session history. Claims has been removed app-wide. */
+const FULL_TABS = [
+  'overview', 'full profile', 'medical history', 'insurance form', 'documents',
+  'schedules', 'sessions', 'doctor rounds', 'cqi', 'cqi comments',
+  'medication history', 'home medication', 'billing history',
+];
+
+/* Same as Admin but WITHOUT Billing History — for Front Desk, Nurse, Technician. */
+const STAFF_FULL_TABS = FULL_TABS.filter((t) => t !== 'billing history');
+
 const TABS_BY_ROLE = {
-  [ROLES.ADMIN]: [
-    'overview', 'full profile', 'insurance form', 'documents',
-    'schedules', 'sessions', 'claims', 'treatment', 'doctor rounds', 'cqi', 'medication history', 'billing history',
-  ],
+  // Admin sees the full patient view (incl. Billing History).
+  [ROLES.ADMIN]: FULL_TABS,
+  // Front Desk, Nurse and Technician: everything Admin has EXCEPT Billing History.
+  [ROLES.FRONT_DESK]: STAFF_FULL_TABS,
+  [ROLES.NURSE]: STAFF_FULL_TABS,
+  [ROLES.TECHNICIAN]: STAFF_FULL_TABS,
+
   [ROLES.INSURANCE_PERSON]: [
     'overview', 'full profile', 'insurance form', 'documents',
-    'schedules', 'treatment', 'doctor rounds',
+    'schedules', 'sessions', 'doctor rounds',
   ],
   [ROLES.BILLER]: [
     'overview', 'full profile', 'insurance form', 'documents',
-    'schedules', 'sessions', 'claims', 'treatment', 'medication history', 'billing history',
-  ],
-  [ROLES.FRONT_DESK]: [
-    'overview', 'full profile', 'insurance form', 'documents', 'schedules',
+    'schedules', 'sessions', 'medication history', 'billing history',
   ],
   [ROLES.DOCTOR]: [
     'overview', 'full profile', 'medical history', 'doctor rounds',
-    'cqi', 'documents', 'schedules', 'treatment', 'medication history',
-  ],
-  [ROLES.NURSE]: [
-    'overview', 'medical history', 'schedules', 'sessions', 'treatment', 'medication history',
-  ],
-  [ROLES.TECHNICIAN]: [
-    'overview', 'schedules', 'treatment',
+    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication', 'cqi comments',
   ],
   [ROLES.SOCIAL_WORKER]: [
-    'overview', 'documents', 'schedules', 'treatment',
+    'overview', 'documents', 'schedules', 'sessions', 'cqi comments',
   ],
 };
 
 const READ_ONLY_TABS_BY_ROLE = {
-  [ROLES.INSURANCE_PERSON]: ['treatment', 'doctor rounds'],
+  [ROLES.INSURANCE_PERSON]: ['sessions', 'doctor rounds'],
 };
 
 export const patientTabsForRole = (role) => {
@@ -129,7 +148,6 @@ export const NAV_BY_ROLE = {
     ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
     ['Medication Billing', '/biller/medication-billing', 'card'],
     ['Reports', '/reports', 'chart'],
-    ['Billing Claims', '/biller/claims', 'card'],
   ],
   [ROLES.FRONT_DESK]: [
     ['Front Desk Dashboard', '/front-desk', 'home'],
@@ -159,7 +177,6 @@ export const NAV_BY_ROLE = {
   [ROLES.BILLER]: [
     ['Biller Dashboard', '/biller', 'home'],
     ['Patients', '/patients', 'users'],
-    ['Billing Claims', '/biller/claims', 'card'],
     ['Doctor Rounds', '/biller/doctor-rounds', 'stethoscope'],
     ['Physician Billing', '/biller/physician-billing', 'card'],
     ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],

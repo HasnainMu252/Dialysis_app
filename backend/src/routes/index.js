@@ -15,6 +15,8 @@ import reportRoutes from './reportRoutes.js';
 import userRoutes from './userRoutes.js';
 import auditRoutes from './auditRoutes.js';
 import medicationRoutes from './medicationRoutes.js';
+import homeMedicationRoutes from './homeMedicationRoutes.js';
+import cqiCommentRoutes from './cqiCommentRoutes.js';
 const router = express.Router();
 
 router.use('/auth', authRoutes);
@@ -33,5 +35,7 @@ router.use('/reports', reportRoutes);
 router.use('/users', userRoutes);
 router.use('/audit-logs', auditRoutes);
 router.use('/medications', medicationRoutes);
+router.use('/home-medications', homeMedicationRoutes);
+router.use('/cqi-comments', cqiCommentRoutes);
 
 export default router;

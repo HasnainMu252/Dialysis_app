@@ -46,6 +46,8 @@ export const roleHome = {
 
 export const statusColor = {
   available: 'bg-green-100 text-green-700 border-green-200',
+  expired: 'bg-rose-100 text-rose-700 border-rose-200',
+  no_show: 'bg-rose-100 text-rose-700 border-rose-200',
   reserved: 'bg-red-100 text-red-700 border-red-200',
   in_use: 'bg-red-100 text-red-700 border-red-200',
   cleaning: 'bg-yellow-100 text-yellow-700 border-yellow-200',

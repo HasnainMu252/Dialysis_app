@@ -59,6 +59,11 @@ status: {
       default: null,
     },
 
+    cleaningUntil: {
+      type: Date,
+      default: null,
+    },
+
     currentSession: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'DialysisSession',

@@ -91,7 +91,7 @@ export const buildMedicationWorkbook = async (meds, month, year) => {
 
     // ---- medication table ----
     const medHead = ws.getRow(r);
-    medHead.values = ['#', 'Medication', 'Dose', 'Unit', 'Route', 'Qty', 'Time'];
+    medHead.values = ['#', 'Medication', 'Dose', 'Unit', 'Route', 'Qty', 'Time', 'Status', 'Stopped / Note'];
     medHead.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     fillRow(medHead, NAVY); borderRow(medHead);
     r += 1;
@@ -99,10 +99,22 @@ export const buildMedicationWorkbook = async (meds, month, year) => {
     g.meds
       .sort((a, b) => new Date(a.administrationTime || a.date) - new Date(b.administrationTime || b.date))
       .forEach((m, i) => {
+        const st = m.status || 'active';
+        const statusLabel = st === 'cancelled' ? 'Stopped' : st === 'deleted' ? 'Removed' : 'Active';
+        const trail = st === 'cancelled'
+          ? `${m.cancelReason ? m.cancelReason : 'Stopped'}${m.cancelledByName ? ` — ${m.cancelledByName}` : ''}${m.cancelledAt ? ` (${dstr(m.cancelledAt)} ${tstr(m.cancelledAt)})` : ''}`
+          : st === 'deleted'
+            ? `Removed${m.deletedByName ? ` — ${m.deletedByName}` : ''}${m.deletedAt ? ` (${dstr(m.deletedAt)})` : ''}`
+            : '';
         const row = ws.getRow(r);
-        row.values = [i + 1, m.name, m.dose, m.unit, m.route, m.quantity, tstr(m.administrationTime || m.date)];
+        row.values = [i + 1, m.name, m.dose, m.unit, m.route, m.quantity, tstr(m.administrationTime || m.date), statusLabel, trail];
         borderRow(row);
         if (i % 2 === 1) fillRow(row, LIGHT);
+        // Colour the status cell
+        const stCell = row.getCell(8);
+        if (st === 'cancelled') stCell.font = { bold: true, color: { argb: 'FFB45309' } };
+        else if (st === 'deleted') stCell.font = { bold: true, color: { argb: 'FF64748B' } };
+        else stCell.font = { color: { argb: 'FF047857' } };
         r += 1;
         const key = m.name || 'Unknown';
         medTotals[key] = medTotals[key] || { qty: 0, count: 0, unit: m.unit };
@@ -111,12 +123,12 @@ export const buildMedicationWorkbook = async (meds, month, year) => {
       });
 
     // ---- total for session ----
-    ws.mergeCells(`A${r}:F${r}`);
+    ws.mergeCells(`A${r}:H${r}`);
     const totCell = ws.getCell(`A${r}`);
     totCell.value = 'Total Medications';
     totCell.font = { bold: true };
     totCell.alignment = { horizontal: 'right', indent: 1 };
-    const totVal = ws.getCell(`G${r}`);
+    const totVal = ws.getCell(`I${r}`);
     totVal.value = g.meds.length;
     totVal.font = { bold: true };
     ws.getRow(r).eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOTAL } }; c.border = border; });

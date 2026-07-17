@@ -30,7 +30,7 @@ export default function ScheduleCard({ schedule, index, onClick }) {
             <p className="truncate text-xs font-semibold text-slate-500">{schedule.code} {phone ? `• ${phone}` : ''}</p>
           </div>
         </div>
-        <StatusBadge status={schedule.status} />
+        <StatusBadge status={schedule.expired ? 'expired' : schedule.status} />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -39,6 +39,14 @@ export default function ScheduleCard({ schedule, index, onClick }) {
         {chair && <span className="inline-flex items-center gap-1.5 text-slate-500"><Armchair size={15} /> Chair {chair}</span>}
         {phone && <span className="inline-flex items-center gap-1.5 text-slate-500 sm:hidden"><Phone size={15} /> {phone}</span>}
       </div>
+
+      {(schedule.bookedByName || schedule.bookedAt || schedule.checkedInAt) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 border-t border-slate-100 pt-2 text-xs text-slate-500">
+          {schedule.bookedByName && <span>Booked by <b className="text-slate-600">{schedule.bookedByName}</b>{schedule.bookedByRole ? ` (${schedule.bookedByRole})` : ''}</span>}
+          {schedule.bookedAt && <span>Booked: {new Date(schedule.bookedAt).toLocaleString()}</span>}
+          {schedule.checkedInAt ? <span>Checked in: {new Date(schedule.checkedInAt).toLocaleString()}</span> : <span className="text-slate-400">Not checked in</span>}
+        </div>
+      )}
     </button>
   );
 }

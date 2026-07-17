@@ -9,6 +9,7 @@ import EmptyState from '../../components/common/EmptyState';
 import ScheduleCard from '../../components/common/ScheduleCard';
 import { personName } from '../../utils/format';
 import StatCard from '../../components/ui/StatCard';
+import CqiPanel from '../../components/common/CqiPanel';
 import { CalendarDays, CalendarRange, Users, CalendarCheck } from 'lucide-react';
 
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -111,9 +112,14 @@ export default function SocialWorkerDashboard() {
                     {!patientSchedules(selected).length && <p className="text-sm text-slate-500">No schedules found.</p>}
                   </div>
                 </div>
+
+                <div className="border-t border-slate-100 pt-3">
+                  <h4 className="mb-2 font-bold text-slate-800">CQI Comment</h4>
+                  <CqiPanel patientId={selected._id} defaultPhase="general" compact />
+                </div>
               </div>
             )
-            : <EmptyState message="Click a schedule card to view that patient's schedules and support info." />}
+            : <EmptyState message="Click a schedule card to view that patient's schedules, support info and add a CQI comment." />}
         </section>
       </div>
     </div>

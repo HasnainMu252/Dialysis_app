@@ -21,15 +21,12 @@ function InfoGrid({ items }) {
   );
 }
 
-export default function PatientBioPanel({ patient, claims = [], compact = false }) {
+export default function PatientBioPanel({ patient, compact = false }) {
   if (!patient) return null;
 
   const insurance = patient.insurance || {};
   const medical = patient.medicalHistory || {};
   const emergency = patient.emergencyContact || {};
-  const paidClaims = claims.filter((c) => c.status === 'paid');
-  const claimTotal = claims.reduce((sum, c) => sum + Number(c.amount || 0), 0);
-  const paidTotal = paidClaims.reduce((sum, c) => sum + Number(c.paymentAmount || c.amount || 0), 0);
   const careFlags = Array.isArray(insurance.careCoordinationFlags)
     ? insurance.careCoordinationFlags.join(', ')
     : insurance.careCoordinationFlags;
@@ -116,18 +113,6 @@ export default function PatientBioPanel({ patient, claims = [], compact = false 
                 { label: 'Valid From', value: dateOnly(insurance.approvalValidFrom) },
                 { label: 'Valid To', value: dateOnly(insurance.approvalValidTo) },
                 { label: 'Rejection Reason', value: insurance.rejectionReason },
-              ]}
-            />
-          </section>
-
-          <section className="card p-5">
-            <h3 className="mb-4 font-bold">Payment Snapshot</h3>
-            <InfoGrid
-              items={[
-                { label: 'Total Claims', value: claims.length },
-                { label: 'Paid Claims', value: paidClaims.length },
-                { label: 'Claimed Amount', value: `Rs ${money(claimTotal)}` },
-                { label: 'Paid Amount', value: `Rs ${money(paidTotal)}` },
               ]}
             />
           </section>
