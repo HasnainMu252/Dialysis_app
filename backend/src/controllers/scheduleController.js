@@ -17,6 +17,8 @@ import {
   createSession,
   ACTIVE_SCHEDULE_STATUSES,
 } from '../services/schedulingService.js';
+import { shiftIdFor } from '../utils/constants.js';
+import { buildSessionCode, slotFor } from '../utils/sessionCode.js';
 
 const formatSchedule = (doc, extra = {}) => {
   if (!doc) return null;
@@ -32,9 +34,25 @@ const formatSchedule = (doc, extra = {}) => {
   // A schedule "expires" when its end time has passed and it was never checked in / started.
   const expired = !!(s.endAt && new Date(s.endAt) < now && openStatuses.includes(s.status));
 
+  const resolvedShift = s.shift ?? slotFor(s.startTime) ?? null;
+  // Recompute when missing or produced by the old format (contains a 0 slot or
+  // an 8-digit date) so existing schedules display the correct code.
+  const needsRebuild = !s.sessionCode || /-0-/.test(s.sessionCode) || /-\d{8}$/.test(s.sessionCode);
+  const resolvedSessionCode = needsRebuild
+    ? buildSessionCode({
+        chairDoc: s.chair,
+        chairCode: s.chairCode,
+        startTime: s.startTime,
+        date: s.date,
+        shift: resolvedShift,
+      })
+    : s.sessionCode;
+
   return {
     id: s._id,
     code: s.code,
+    sessionCode: resolvedSessionCode,
+    shift: resolvedShift,
     patientMrn: s.patientMrn,
     patientName,
     patientPhone: s.patient?.phone,
@@ -185,11 +203,13 @@ export const createSchedule = asyncHandler(async (req, res) => {
 });
 
 export const listSchedules = asyncHandler(async (req, res) => {
-  const { patientMrn, date, status, chair, chairCode } = req.query;
+  const { patientMrn, date, status, chair, chairCode, shift } = req.query;
   const filter = {};
 
   if (patientMrn) filter.patientMrn = patientMrn;
   if (status) filter.status = status;
+  // Shift filter is applied after mapping (see below) so that schedules created
+  // before the shift field existed still resolve via their startTime.
 
   if (date) {
     if (!DATE_RE.test(date)) {
@@ -235,10 +255,17 @@ export const listSchedules = asyncHandler(async (req, res) => {
   const checkInMap = new Map(sessions.map((se) => [String(se.schedule), se.checkedInAt]));
   const now = new Date();
 
+  let mapped = schedules.map((s) => formatSchedule(s, { now, checkedInAt: checkInMap.get(String(s._id)) }));
+
+  if (shift) {
+    const want = Number(shift);
+    mapped = mapped.filter((s) => (s.shift ?? shiftIdFor(s.startTime)) === want);
+  }
+
   res.json({
     success: true,
-    count: schedules.length,
-    schedules: schedules.map((s) => formatSchedule(s, { now, checkedInAt: checkInMap.get(String(s._id)) })),
+    count: mapped.length,
+    schedules: mapped,
   });
 });
 

@@ -650,20 +650,21 @@ export default function PatientCreate() {
                 onChange={(v) => setNested('medicalHistory', 'diabetic', v)}
                 options={['unknown', 'yes', 'no']}
               />
-              <TextField
-                label="Renal Failure Due To Accident"
-                value={form.medicalHistory.renalFailureDueToAccident}
-                onChange={(v) =>
-                  setNested('medicalHistory', 'renalFailureDueToAccident', v)
-                }
-              />
-              <TextField
+              <SelectField
                 label="Had Dialysis Before"
                 value={form.medicalHistory.hadDialysisBefore}
-                onChange={(v) =>
-                  setNested('medicalHistory', 'hadDialysisBefore', v)
-                }
+                onChange={(v) => {
+                  setNested('medicalHistory', 'hadDialysisBefore', v);
+                  // Clear the prior-dialysis detail when the answer is not "yes"
+                  if (v !== 'yes') {
+                    setNested('medicalHistory', 'previousDialysisLocation', '');
+                    setNested('medicalHistory', 'previousDialysisDate', '');
+                  }
+                }}
+                options={['unknown', 'yes', 'no']}
               />
+              {form.medicalHistory.hadDialysisBefore === 'yes' && (
+                <>
               <TextField
                 label="Previous Dialysis Location"
                 value={form.medicalHistory.previousDialysisLocation}
@@ -679,6 +680,8 @@ export default function PatientCreate() {
                   setNested('medicalHistory', 'previousDialysisDate', v)
                 }
               />
+                </>
+              )}
               <TextAreaField
                 label="Medical Notes"
                 value={form.medicalHistory.notes}

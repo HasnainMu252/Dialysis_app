@@ -31,7 +31,7 @@ export default function TechnicianDashboard() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Technician Dashboard" subtitle="Chair status, maintenance clearance, and today's scheduled patient workflow. Chair creation is admin/front desk only." />
+      <PageHeader title="Technician Dashboard" subtitle="Station status, maintenance clearance, and today's scheduled patient workflow. Station creation is admin/front desk only." />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {CHAIR_STATUS.map((s) => (
@@ -43,7 +43,7 @@ export default function TechnicianDashboard() {
 
       <div className="grid gap-5 xl:grid-cols-3">
         <section className="space-y-3">
-          <h2 className="font-bold">Chair Status</h2>
+          <h2 className="font-bold">Station Status</h2>
           {chairs.map((c) => (
             <div className="card p-4" key={c._id}><div className="flex justify-between gap-2"><div><b>{c.code || c.chairNumber}</b><p className="text-xs text-slate-500">{c.location}</p><p className="text-xs text-slate-400">{c.conditionNotes}</p></div><StatusBadge status={c.status} /></div></div>
           ))}
@@ -51,7 +51,7 @@ export default function TechnicianDashboard() {
         <section className="space-y-3 xl:col-span-2">
           <h2 className="font-bold">Today's Scheduled Patients</h2>
           {todaySchedules.map((s) => (
-            <div key={s.id || s._id} className="card p-4"><div className="flex justify-between gap-2"><div><b>{s.patientName || personName({})}</b><p className="text-xs text-slate-500">{s.patientMrn} • {s.patientPhone}</p><p className="text-xs text-slate-500">{dateOnly(s.date)} • {s.startTime}-{s.endTime} • Chair {s.chair?.code}</p></div><StatusBadge status={s.expired ? 'expired' : s.status} /></div></div>
+            <div key={s.id || s._id} className="card p-4"><div className="flex justify-between gap-2"><div><b>{s.patientName || personName({})}</b><p className="text-xs text-slate-500">{s.patientMrn} • {s.patientPhone}</p><p className="text-xs text-slate-500">{dateOnly(s.date)} • {s.startTime}-{s.endTime} • Station {s.chair?.code}</p></div><StatusBadge status={s.expired ? 'expired' : s.status} /></div></div>
           ))}
           {!todaySchedules.length && <EmptyState message="No active schedules for today" />}
         </section>

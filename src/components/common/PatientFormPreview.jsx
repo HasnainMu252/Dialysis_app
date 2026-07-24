@@ -81,10 +81,13 @@ export default function PatientFormPreview({ form, documentFile, documentType })
           ['Diagnosis', med.diagnosis], ['Dialysis Frequency', med.dialysisFrequency],
           ['Allergies', med.allergies], ['Access Type', med.accessType],
           ['Post Weight', med.postWeight], ['Height', med.height], ['Diabetic', med.diabetic],
-          ['Renal Failure Due To Accident', med.renalFailureDueToAccident],
           ['Had Dialysis Before', med.hadDialysisBefore],
-          ['Previous Dialysis Location', med.previousDialysisLocation],
-          ['Previous Dialysis Date', med.previousDialysisDate],
+          ...(med.hadDialysisBefore === 'yes'
+            ? [
+                ['Previous Dialysis Location', med.previousDialysisLocation],
+                ['Previous Dialysis Date', med.previousDialysisDate],
+              ]
+            : []),
           ['Notes', med.notes],
         ]} />
       </section>

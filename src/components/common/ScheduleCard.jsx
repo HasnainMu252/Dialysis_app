@@ -30,13 +30,20 @@ export default function ScheduleCard({ schedule, index, onClick }) {
             <p className="truncate text-xs font-semibold text-slate-500">{schedule.code} {phone ? `• ${phone}` : ''}</p>
           </div>
         </div>
-        <StatusBadge status={schedule.expired ? 'expired' : schedule.status} />
+        <div className="flex items-center gap-2">
+          {schedule.sessionCode && (
+            <span className="rounded-lg bg-slate-900 px-2 py-0.5 font-mono text-[11px] font-bold text-white" title="Station-Shift-Date">
+              {schedule.sessionCode}
+            </span>
+          )}
+          <StatusBadge status={schedule.expired ? 'expired' : schedule.status} />
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         <span className="inline-flex items-center gap-1.5 text-slate-700"><CalendarDays size={15} className="text-blue-600" /><b className="font-bold">{date ? dateOnly(date) : '—'}</b></span>
         {time && <span className="inline-flex items-center gap-1.5 text-slate-700"><Clock size={15} className="text-blue-600" /><b className="font-bold">{time}</b></span>}
-        {chair && <span className="inline-flex items-center gap-1.5 text-slate-500"><Armchair size={15} /> Chair {chair}</span>}
+        {chair && <span className="inline-flex items-center gap-1.5 text-slate-500"><Armchair size={15} /> Station {chair}</span>}
         {phone && <span className="inline-flex items-center gap-1.5 text-slate-500 sm:hidden"><Phone size={15} /> {phone}</span>}
       </div>
 

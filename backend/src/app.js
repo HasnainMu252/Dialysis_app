@@ -1,4 +1,5 @@
 import express from 'express';
+import { UPLOADS_ROOT } from './utils/uploadsPath.js';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cors from 'cors';
@@ -60,7 +61,7 @@ app.get('/health', (_req, res) =>
 );
 
 // Static uploads
-app.use('/uploads', cors(corsOptions), express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', cors(corsOptions), express.static(UPLOADS_ROOT));
 
 // API routes
 app.use('/api/v1', cors(corsOptions), auditLogger, routes);

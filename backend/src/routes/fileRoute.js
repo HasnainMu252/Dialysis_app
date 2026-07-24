@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { protect, authorize } from '../middleware/auth.js';
 import { ALL_STAFF_ROLES } from '../utils/constants.js';
 import { ApiError } from '../utils/apiError.js';
+import { resolveUploadFile } from '../utils/uploadsPath.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,9 +23,10 @@ router.get('/:folder/:filename', (req, res, next) => {
       throw new ApiError(400, 'Invalid file path');
     }
 
-    const filePath = path.resolve(uploadsRoot, folder, filename);
-    if (!filePath.startsWith(uploadsRoot)) throw new ApiError(400, 'Invalid file path');
-    if (!fs.existsSync(filePath)) throw new ApiError(404, 'File not found');
+    // Resolves against the canonical uploads root, falling back to the
+    // cwd-relative folder when the process was started from elsewhere.
+    const filePath = resolveUploadFile(folder, filename);
+    if (!filePath) throw new ApiError(404, 'File not found');
 
     const ext = path.extname(filename).toLowerCase();
     if (ext === '.pdf') res.setHeader('Content-Type', 'application/pdf');

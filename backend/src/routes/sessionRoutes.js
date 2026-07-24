@@ -8,6 +8,7 @@ import {
   startSession,
   uploadSessionDocuments,
   addTechnicianNote,
+  finalizeSession,
   deleteTechnicianNote,
 } from '../controllers/sessionController.js';
 import { protect, authorize } from '../middleware/auth.js';
@@ -28,6 +29,8 @@ router.post('/:id/vitals', clinical, addVitals);
 router.post('/:id/soap', clinical, addSoap);
 router.post('/:id/documents', clinical, uploadSessionDocument.array('documents', 10), uploadSessionDocuments);
 router.patch('/:id/complete', clinical, completeSession);
+// Nurse (or admin) signs off a technician-submitted session and closes it.
+router.patch('/:id/finalize', authorize(ROLES.NURSE, ROLES.ADMIN), finalizeSession);
 
 router.post('/:id/technician-notes', noteAuthors, addTechnicianNote);
 router.delete('/:id/technician-notes/:noteId', noteAuthors, deleteTechnicianNote);

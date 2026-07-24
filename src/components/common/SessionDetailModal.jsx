@@ -40,7 +40,7 @@ export default function SessionDetailModal({ session, onClose }) {
         <div className="sticky top-0 flex items-center justify-between border-b bg-white px-5 py-4">
           <div>
             <h3 className="text-lg font-extrabold text-slate-900">Dialysis Session Detail</h3>
-            <p className="text-xs text-slate-500">{session.status} · Chair {session.chair?.code || session.chair?.chairNumber || '—'}</p>
+            <p className="text-xs text-slate-500">{session.status} · Station {session.chair?.code || session.chair?.chairNumber || '—'}</p>
           </div>
           <button onClick={onClose}><X className="text-slate-400" /></button>
         </div>

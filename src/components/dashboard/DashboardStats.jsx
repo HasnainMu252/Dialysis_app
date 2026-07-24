@@ -81,7 +81,7 @@ export default function DashboardStats({ title, subtitle, accent = 'admin' }) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <StatCard title="Patients" value={stats.patients} icon={Users} />
-        <StatCard title="Chairs" value={stats.chairs} icon={Armchair} />
+        <StatCard title="Stations" value={stats.chairs} icon={Armchair} />
         <StatCard title="Schedules" value={stats.schedules} icon={CalendarDays} />
         <StatCard title="Sessions" value={stats.sessions} icon={Activity} />
         <StatCard title="Claims" value={stats.claims} icon={CreditCard} />

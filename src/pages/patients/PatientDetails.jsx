@@ -26,6 +26,7 @@ import { homeMedicationApi, HOME_MED_ROUTES, HOME_MED_UNITS, HOME_MED_FREQUENCIE
 import SessionDetailModal from '../../components/common/SessionDetailModal';
 import Portal from '../../components/common/Portal';
 import CqiPanel from '../../components/common/CqiPanel';
+import LabPanel from '../../components/common/LabPanel';
 import MedicationActivity from '../../components/common/MedicationActivity';
 import { API_BASE_URL } from '../../constants';
 
@@ -1129,10 +1130,13 @@ export default function PatientDetails() {
                   <TextField label="Post Weight" value={form.medicalHistory.postWeight} onChange={(v) => setNested('medicalHistory', 'postWeight', v)} />
                   <TextField label="Height" value={form.medicalHistory.height} onChange={(v) => setNested('medicalHistory', 'height', v)} />
                   <SelectField label="Diabetic" value={form.medicalHistory.diabetic} onChange={(v) => setNested('medicalHistory', 'diabetic', v)} options={['unknown', 'yes', 'no']} />
-                  <TextField label="Renal Failure Due To Accident" value={form.medicalHistory.renalFailureDueToAccident} onChange={(v) => setNested('medicalHistory', 'renalFailureDueToAccident', v)} />
-                  <TextField label="Had Dialysis Before" value={form.medicalHistory.hadDialysisBefore} onChange={(v) => setNested('medicalHistory', 'hadDialysisBefore', v)} />
-                  <TextField label="Previous Dialysis Location" value={form.medicalHistory.previousDialysisLocation} onChange={(v) => setNested('medicalHistory', 'previousDialysisLocation', v)} />
-                  <TextField label="Previous Dialysis Date" type="date" value={form.medicalHistory.previousDialysisDate} onChange={(v) => setNested('medicalHistory', 'previousDialysisDate', v)} />
+                  <SelectField label="Had Dialysis Before" value={form.medicalHistory.hadDialysisBefore} onChange={(v) => { setNested('medicalHistory', 'hadDialysisBefore', v); if (v !== 'yes') { setNested('medicalHistory', 'previousDialysisLocation', ''); setNested('medicalHistory', 'previousDialysisDate', ''); } }} options={['unknown', 'yes', 'no']} />
+                  {form.medicalHistory.hadDialysisBefore === 'yes' && (
+                    <>
+                      <TextField label="Previous Dialysis Location" value={form.medicalHistory.previousDialysisLocation} onChange={(v) => setNested('medicalHistory', 'previousDialysisLocation', v)} />
+                      <TextField label="Previous Dialysis Date" type="date" value={form.medicalHistory.previousDialysisDate} onChange={(v) => setNested('medicalHistory', 'previousDialysisDate', v)} />
+                    </>
+                  )}
                   <TextAreaField label="Medical Notes" value={form.medicalHistory.notes} onChange={(v) => setNested('medicalHistory', 'notes', v)} />
                 </div>
               </section>
@@ -1215,7 +1219,7 @@ export default function PatientDetails() {
                 <StatusBadge status={item.status} />
               </div>
               <p>
-                {dateOnly(item.date)} • {item.startTime}-{item.endTime} • Chair{' '}
+                {dateOnly(item.date)} • {item.startTime}-{item.endTime} • Station{' '}
                 {item.chair?.code || item.chairCode}
               </p>
             </div>
@@ -1239,9 +1243,12 @@ export default function PatientDetails() {
               <p><b>Height:</b> {patient.medicalHistory.height || '-'}</p>
               <p><b>Post Weight:</b> {patient.medicalHistory.postWeight || '-'}</p>
               <p><b>Had Dialysis Before:</b> {patient.medicalHistory.hadDialysisBefore || '-'}</p>
-              <p><b>Previous Dialysis Location:</b> {patient.medicalHistory.previousDialysisLocation || '-'}</p>
-              <p><b>Previous Dialysis Date:</b> {patient.medicalHistory.previousDialysisDate ? dateOnly(patient.medicalHistory.previousDialysisDate) : '-'}</p>
-              <p><b>Renal Failure Due To Accident:</b> {patient.medicalHistory.renalFailureDueToAccident || '-'}</p>
+              {patient.medicalHistory.hadDialysisBefore === 'yes' && (
+                <>
+                  <p><b>Previous Dialysis Location:</b> {patient.medicalHistory.previousDialysisLocation || '-'}</p>
+                  <p><b>Previous Dialysis Date:</b> {patient.medicalHistory.previousDialysisDate ? dateOnly(patient.medicalHistory.previousDialysisDate) : '-'}</p>
+                </>
+              )}
               <p className="md:col-span-2"><b>Allergies:</b> {(patient.medicalHistory.allergies || []).join(', ') || '-'}</p>
               <p className="md:col-span-2"><b>Notes:</b> {patient.medicalHistory.notes || '-'}</p>
             </div>
@@ -1387,6 +1394,12 @@ export default function PatientDetails() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {tab === 'lab reports' && (
+        <section className="card p-5">
+          <LabPanel patientId={id} />
         </section>
       )}
 

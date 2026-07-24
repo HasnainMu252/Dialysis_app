@@ -7,6 +7,9 @@ import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
 import ScheduleCard from '../../components/common/ScheduleCard';
 import PatientBoard from '../../components/common/PatientBoard';
+import { Link } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
+import { personName } from '../../utils/format';
 
 const isSameDay = (date, referenceDate) => {
   if (!date) return false;
@@ -199,6 +202,14 @@ export default function NurseDashboard() {
     };
   }, [sessions, meds, today]);
 
+  const pendingReview = useMemo(
+    () =>
+      sessions.filter(
+        (s) => String(s.status || '').toLowerCase() === 'pending_review'
+      ),
+    [sessions]
+  );
+
   const todaySchedules = useMemo(
     () =>
       schedules.filter(
@@ -305,6 +316,54 @@ export default function NurseDashboard() {
           </div>
         ) : (
           <EmptyState message="No active patients scheduled for today" />
+        )}
+      </section>
+
+      <section className="card p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
+              <ShieldCheck size={18} className="text-amber-600" />
+              Dialysis Pending Your Review
+            </h2>
+            <p className="text-sm text-slate-500">
+              Sessions submitted by a technician. Open one to review and sign it off.
+            </p>
+          </div>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+            {pendingReview.length} awaiting
+          </span>
+        </div>
+
+        {!pendingReview.length ? (
+          <EmptyState message="Nothing is waiting for review." />
+        ) : (
+          <div className="space-y-2">
+            {pendingReview.map((s) => (
+              <div
+                key={s._id}
+                className="flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-900">{personName(s.patient)}</p>
+                  <p className="text-xs text-slate-500">
+                    MRN {s.patient?.mrn || '—'}
+                    {s.schedule?.sessionCode ? ` • ${s.schedule.sessionCode}` : ''}
+                    {s.chair?.code ? ` • Station ${s.chair.code}` : ''}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Submitted by {s.submittedForReviewByName || '—'}
+                    {s.submittedForReviewAt
+                      ? ` • ${new Date(s.submittedForReviewAt).toLocaleString()}`
+                      : ''}
+                  </p>
+                </div>
+                <Link className="btn-primary shrink-0 text-center text-sm" to="/workflow">
+                  Review &amp; Sign Off
+                </Link>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 

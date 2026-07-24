@@ -91,6 +91,31 @@ const sessionSchema = new mongoose.Schema(
     },
 
     completedAt: Date,
+
+    /**
+     * Technician submits the finished dialysis for nurse review.
+     * The session sits at status 'pending_review' until a nurse signs it off.
+     */
+    submittedForReviewAt: Date,
+    submittedForReviewBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    submittedForReviewByName: { type: String, trim: true },
+    submittedForReviewByRole: { type: String, trim: true },
+    submissionNotes: { type: String, trim: true },
+
+    /**
+     * Nurse's final sign-off. `signatureName` is the nurse's typed digital
+     * signature; stored with identity + timestamp so the close is attributable.
+     */
+    nurseReview: {
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      reviewedByName: { type: String, trim: true },
+      reviewedByRole: { type: String, trim: true },
+      reviewedAt: Date,
+      signatureName: { type: String, trim: true },
+      attested: { type: Boolean, default: false },
+      reviewNotes: { type: String, trim: true },
+    },
+
     completedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

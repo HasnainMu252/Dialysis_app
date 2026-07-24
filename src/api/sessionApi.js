@@ -6,6 +6,7 @@ export const sessionApi = {
   start: (id) => api.patch(`/sessions/${id}/start`),
   vitals: (id, data) => api.post(`/sessions/${id}/vitals`, data),
   soap: (id, data) => api.post(`/sessions/${id}/soap`, data),
+  finalize: (id, data) => api.patch(`/sessions/${id}/finalize`, data),
   addNote: (id, data) => api.post(`/sessions/${id}/technician-notes`, data),
   deleteNote: (id, noteId) => api.delete(`/sessions/${id}/technician-notes/${noteId}`),
   complete: (id, data) => api.patch(`/sessions/${id}/complete`, data),

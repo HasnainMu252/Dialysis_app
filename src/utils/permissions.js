@@ -75,6 +75,7 @@ export const PATIENT_TAB_LABELS = {
   'medication history': 'Medication History',
   'home medication': 'Home Medications',
   'cqi comments': 'CQI Comments',
+  'lab reports': 'Lab Reports',
   'billing history': 'Billing History',
 };
 
@@ -84,7 +85,7 @@ export const PATIENT_TAB_LABELS = {
 const FULL_TABS = [
   'overview', 'full profile', 'medical history', 'insurance form', 'documents',
   'schedules', 'sessions', 'doctor rounds', 'cqi', 'cqi comments',
-  'medication history', 'home medication', 'billing history',
+  'medication history', 'home medication', 'lab reports', 'billing history',
 ];
 
 /* Same as Admin but WITHOUT Billing History — for Front Desk, Nurse, Technician. */
@@ -108,7 +109,7 @@ const TABS_BY_ROLE = {
   ],
   [ROLES.DOCTOR]: [
     'overview', 'full profile', 'medical history', 'doctor rounds',
-    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication', 'cqi comments',
+    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication', 'cqi comments', 'lab reports',
   ],
   [ROLES.SOCIAL_WORKER]: [
     'overview', 'documents', 'schedules', 'sessions', 'cqi comments',
@@ -138,8 +139,8 @@ export const NAV_BY_ROLE = {
     ['Patients', '/front-desk/patients', 'users'],
     ['Create Schedule', '/front-desk/scheduling', 'calendar'],
     ['Schedules', '/schedules', 'calendar'],
-    ['Chairs', '/chairs', 'chair'],
-    ['Chair Maintenance', '/technician/maintenance', 'wrench'],
+    ['Stations', '/chairs', 'chair'],
+    ['Station Maintenance', '/technician/maintenance', 'wrench'],
     ['Treatment Workflow', '/workflow', 'stethoscope'],
     ['Batch Monthly Round', '/doctor/batch-round', 'stethoscope'],
     ['Batch Edit', '/doctor/batch-edit', 'activity'],
@@ -165,8 +166,8 @@ export const NAV_BY_ROLE = {
   [ROLES.TECHNICIAN]: [
     ['Technician Dashboard', '/technician', 'home'],
     ['Patients', '/patients', 'users'],
-    ['Chairs Status', '/chairs', 'chair'],
-    ['Chair Maintenance', '/technician/maintenance', 'wrench'],
+    ['Stations Status', '/chairs', 'chair'],
+    ['Station Maintenance', '/technician/maintenance', 'wrench'],
     ['Treatment Workflow', '/workflow', 'activity'],
   ],
   [ROLES.SOCIAL_WORKER]: [

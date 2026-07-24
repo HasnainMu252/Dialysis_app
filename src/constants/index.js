@@ -75,3 +75,24 @@ export const statusColor = {
   read: 'bg-green-100 text-green-700 border-green-200',
   unread: 'bg-blue-100 text-blue-700 border-blue-200',
 };
+
+/* Fixed treatment shifts. Gaps (08:00-09:00, 12:00-12:30) are station cleaning/buffer time. */
+export const SHIFTS = [
+  { id: 1, label: '1st Shift', time: '05:00 - 08:00' },
+  { id: 2, label: '2nd Shift', time: '09:00 - 12:00' },
+  { id: 3, label: '3rd Shift', time: '12:30 - 16:00' },
+];
+
+export const shiftLabel = (id) => SHIFTS.find((s) => s.id === Number(id))?.label || '';
+
+/** Resolve which shift a "HH:MM" start time belongs to (mirrors backend shiftIdFor). */
+export const shiftIdFromTime = (hhmm) => {
+  if (!hhmm || typeof hhmm !== 'string') return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h)) return null;
+  const mins = h * 60 + (m || 0);
+  const win = [[1, 300, 480], [2, 540, 720], [3, 750, 960]];
+  for (const [id, start, end] of win) if (mins >= start && mins < end) return id;
+  for (const [id, start] of win) if (mins < start) return id;
+  return null;
+};

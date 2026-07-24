@@ -11,8 +11,7 @@ import {
   Clock3,
   RefreshCw,
   Search,
-  X,
-} from 'lucide-react';
+  X, ShieldCheck } from 'lucide-react';
 
 import { sessionApi } from '../../api/sessionApi';
 import {
@@ -28,6 +27,7 @@ import {
 } from '../../api/homeMedicationApi';
 import { chairClearanceApi } from '../../api/chairClearanceApi';
 
+import { SHIFTS, shiftIdFromTime } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import {
   canManageHomeMedication,
@@ -40,6 +40,8 @@ import NoteAuthor from '../../components/common/NoteAuthor';
 import MedicationCard from '../../components/workflow/MedicationCard';
 import HomeMedicationCard from '../../components/workflow/HomeMedicationCard';
 import SessionNotesCard from '../../components/workflow/SessionNotesCard';
+import NurseReviewCard from '../../components/workflow/NurseReviewCard';
+import LabPanel from '../../components/common/LabPanel';
 import CqiPanel from '../../components/common/CqiPanel';
 import { accessTypesForRole } from '../../api/medicationApi';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -114,6 +116,7 @@ const ACTIVE_STATUSES = [
   'checked_in',
   'ready',
   'in_progress',
+  'pending_review',
 ];
 
 const formatStatusLabel = (status = '') =>
@@ -230,6 +233,7 @@ export default function TreatmentWorkflow() {
   const [view, setView] = useState('scheduled');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [shiftFilter, setShiftFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -255,6 +259,11 @@ export default function TreatmentWorkflow() {
   const [sessionNotes, setSessionNotes] = useState([]);
   const [noteForm, setNoteForm] = useState({ ...BLANK_NOTE });
   const [savingNote, setSavingNote] = useState(false);
+
+  // Nurse review / digital sign-off of a technician-submitted session
+  const [signature, setSignature] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [attested, setAttested] = useState(false);
 
   const [docFiles, setDocFiles] = useState([]);
   const [docName, setDocName] = useState('');
@@ -642,34 +651,81 @@ export default function TreatmentWorkflow() {
       sessionApi.soap(selected._id, soap)
     );
 
+  const isTechnician = user?.role === 'technician';
+
   const completeAndClean = async () => {
-    const completed = await action('Session completed', () =>
-      sessionApi.complete(selected._id, {
+    const completed = await action(
+      isTechnician ? 'Submitted for nurse review' : 'Session completed',
+      () => sessionApi.complete(selected._id, {
         treatmentSummary: summary,
       })
     );
 
     if (!completed) return;
 
-    const chairCode =
+    // A technician submission is NOT a close — the nurse signs off and the
+    // station is released then. Skip the clearance step.
+    if (isTechnician) return;
+
+    const stationCode =
       selected?.chair?.code ||
       selected?.chair?.chairNumber;
 
-    if (!chairCode) return;
+    if (!stationCode) return;
 
     try {
-      await chairClearanceApi.create(chairCode, {
+      await chairClearanceApi.create(stationCode, {
         status: 'available',
-        notes: 'Post-treatment chair cleaned and ready.',
+        notes: 'Post-treatment station cleaned and ready.',
         checklist: DEFAULT_CHAIR_CHECKLIST,
       });
 
-      toast.success('Chair cleared and available');
+      toast.success('Station cleared and available');
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
-          'Chair clearance failed'
+          'Station clearance failed'
       );
+    }
+  };
+
+  /** Nurse reviews a technician-submitted session and closes it with a signature. */
+  const finalizeWithSignature = async () => {
+    if (!signature.trim()) {
+      toast.error('Type your full name as a digital signature');
+      return;
+    }
+    if (!attested) {
+      toast.error('Please confirm you have reviewed the record');
+      return;
+    }
+
+    const done = await action('Session reviewed and closed', () =>
+      sessionApi.finalize(selected._id, {
+        signatureName: signature.trim(),
+        attested: true,
+        reviewNotes,
+        treatmentSummary: summary,
+      })
+    );
+
+    if (!done) return;
+
+    setSignature('');
+    setReviewNotes('');
+    setAttested(false);
+
+    const stationCode = selected?.chair?.code || selected?.chair?.chairNumber;
+    if (!stationCode) return;
+    try {
+      await chairClearanceApi.create(stationCode, {
+        status: 'available',
+        notes: 'Post-treatment station cleaned and ready.',
+        checklist: DEFAULT_CHAIR_CHECKLIST,
+      });
+      toast.success('Station cleared and available');
+    } catch {
+      /* clearance is best-effort; the session is already closed */
     }
   };
 
@@ -722,6 +778,16 @@ export default function TreatmentWorkflow() {
     }).length;
   }, [sessions]);
 
+  const reviewCount = useMemo(
+    () =>
+      sessions.filter(
+        (session) =>
+          String(session.status || '').toLowerCase() ===
+          'pending_review'
+      ).length,
+    [sessions]
+  );
+
   const completedCount = useMemo(
     () =>
       sessions.filter(
@@ -766,8 +832,28 @@ export default function TreatmentWorkflow() {
           return false;
         }
 
+        // Nurse review queue: only technician-submitted sessions awaiting sign-off.
+        if (
+          view === 'review' &&
+          sessionStatus !== 'pending_review'
+        ) {
+          return false;
+        }
+
         if (status && sessionStatus !== status) {
           return false;
+        }
+
+        // Shift filter: 1 = 05:00-08:00, 2 = 09:00-12:00, 3 = 12:30-16:00.
+        // Falls back to deriving from startTime for schedules created before
+        // the shift field existed.
+        if (shiftFilter) {
+          const sched = session.schedule || {};
+          const sessionShift =
+            sched.shift ?? shiftIdFromTime(sched.startTime);
+          if (Number(sessionShift) !== Number(shiftFilter)) {
+            return false;
+          }
         }
 
         if (
@@ -840,6 +926,7 @@ export default function TreatmentWorkflow() {
     dateTo,
     search,
     sessions,
+    shiftFilter,
     status,
     view,
   ]);
@@ -872,6 +959,11 @@ export default function TreatmentWorkflow() {
 
   const isCompleted =
     selectedStatus === 'completed';
+
+  // Technician-submitted, awaiting nurse sign-off. The nurse must still be able
+  // to see and correct everything, so the full workflow renders in this state.
+  const isPendingReview =
+    selectedStatus === 'pending_review';
 
   const durationMin =
     selected?.startedAt && selected?.completedAt
@@ -911,6 +1003,22 @@ export default function TreatmentWorkflow() {
               Scheduled
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
                 {scheduledCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => changeView('review')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition sm:flex-none ${
+                view === 'review'
+                  ? 'bg-white text-amber-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <ShieldCheck size={17} />
+              Pending Review
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                {reviewCount}
               </span>
             </button>
 
@@ -968,12 +1076,14 @@ export default function TreatmentWorkflow() {
             onChange={(event) =>
               setStatus(event.target.value)
             }
-            disabled={view === 'completed'}
+            disabled={view === 'completed' || view === 'review'}
           >
             <option value="">
               {view === 'completed'
                 ? 'Completed sessions'
-                : 'All active statuses'}
+                : view === 'review'
+                  ? 'Pending nurse review'
+                  : 'All active statuses'}
             </option>
 
             {view === 'scheduled' &&
@@ -983,6 +1093,24 @@ export default function TreatmentWorkflow() {
                 </option>
               ))}
           </select>
+
+          <div>
+            <FieldLabel>Shift</FieldLabel>
+            <select
+              className="input"
+              value={shiftFilter}
+              onChange={(event) =>
+                setShiftFilter(event.target.value)
+              }
+            >
+              <option value="">All shifts</option>
+              {SHIFTS.map((sh) => (
+                <option key={sh.id} value={sh.id}>
+                  {sh.label} ({sh.time})
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <FieldLabel>From date</FieldLabel>
@@ -1017,7 +1145,9 @@ export default function TreatmentWorkflow() {
               <h2 className="font-extrabold text-slate-900">
                 {view === 'scheduled'
                   ? 'Current & Upcoming Sessions'
-                  : 'Completed Sessions'}
+                  : view === 'review'
+                    ? 'Awaiting Nurse Review'
+                    : 'Completed Sessions'}
               </h2>
 
               <p className="text-xs text-slate-500">
@@ -1078,7 +1208,7 @@ export default function TreatmentWorkflow() {
 
                       <div className="rounded-xl bg-slate-50 p-2.5">
                         <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Chair
+                          Station
                         </span>
 
                         <span className="mt-0.5 block truncate text-xs font-bold text-slate-700">
@@ -1128,24 +1258,140 @@ export default function TreatmentWorkflow() {
 
                     <p className="mt-1 text-sm text-slate-500">
                       MRN {selected.patient?.mrn || '—'} •
-                      Chair{' '}
+                      Station{' '}
                       {selected.chair?.code ||
                         selected.chair?.chairNumber ||
                         'Not assigned'}
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-400">
-                      Schedule{' '}
-                      {selected.schedule?.code ||
-                        selected.schedule?._id ||
-                        selected.schedule ||
-                        '—'}
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span>
+                        Schedule{' '}
+                        {selected.schedule?.code ||
+                          selected.schedule?._id ||
+                          selected.schedule ||
+                          '—'}
+                      </span>
+                      {selected.schedule?.sessionCode && (
+                        <span
+                          className="rounded-lg bg-slate-900 px-2 py-0.5 font-mono text-[11px] font-bold text-white"
+                          title="Station - Shift - Date"
+                        >
+                          {selected.schedule.sessionCode}
+                        </span>
+                      )}
+                      {(selected.schedule?.shift ??
+                        shiftIdFromTime(selected.schedule?.startTime)) && (
+                        <span className="rounded-lg bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                          {SHIFTS.find(
+                            (sh) =>
+                              sh.id ===
+                              Number(
+                                selected.schedule?.shift ??
+                                  shiftIdFromTime(
+                                    selected.schedule?.startTime
+                                  )
+                              )
+                          )?.label}
+                        </span>
+                      )}
                     </p>
                   </div>
 
                   <StatusBadge
                     status={selected.status}
                   />
+                </div>
+
+                {/* Appointment / schedule detail */}
+                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+                  <p className="mb-3 text-xs font-extrabold uppercase tracking-wide text-blue-800">
+                    Schedule Detail
+                  </p>
+                  <div className="grid gap-3 text-xs text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Appointment date
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.schedule?.date
+                          ? new Date(selected.schedule.date).toLocaleDateString()
+                          : '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Time
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.schedule?.startTime || '—'}
+                        {selected.schedule?.endTime
+                          ? ` - ${selected.schedule.endTime}`
+                          : ''}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Shift
+                      </span>
+                      <b className="mt-1 block">
+                        {SHIFTS.find(
+                          (sh) =>
+                            sh.id ===
+                            Number(
+                              selected.schedule?.shift ??
+                                shiftIdFromTime(selected.schedule?.startTime)
+                            )
+                        )?.label || '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Station
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.chair?.code ||
+                          selected.chair?.chairNumber ||
+                          '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Booked by
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.schedule?.bookedByName || '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Checked in
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.checkedInAt
+                          ? formatDateTime(selected.checkedInAt)
+                          : 'Not checked in'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Duration
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.schedule?.durationHours
+                          ? `${selected.schedule.durationHours} hr`
+                          : '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Session code
+                      </span>
+                      <b className="mt-1 block font-mono">
+                        {selected.schedule?.sessionCode || '—'}
+                      </b>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 text-xs text-slate-600 sm:grid-cols-3">
@@ -1169,13 +1415,34 @@ export default function TreatmentWorkflow() {
 
                   <div className="rounded-xl bg-slate-50 p-3">
                     <span className="block font-semibold text-slate-400">
-                      Completed
+                      Submitted by technician
                     </span>
                     <b className="mt-1 block">
-                      {formatDateTime(
-                        selected.completedAt
-                      )}
+                      {selected.submittedForReviewAt
+                        ? formatDateTime(selected.submittedForReviewAt)
+                        : '—'}
                     </b>
+                    {selected.submittedForReviewByName && (
+                      <span className="mt-0.5 block text-[11px] text-slate-400">
+                        {selected.submittedForReviewByName}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <span className="block font-semibold text-slate-400">
+                      Completed (nurse sign-off)
+                    </span>
+                    <b className="mt-1 block">
+                      {selected.completedAt
+                        ? formatDateTime(selected.completedAt)
+                        : '—'}
+                    </b>
+                    {selected.nurseReview?.signatureName && (
+                      <span className="mt-0.5 block text-[11px] text-slate-400">
+                        Signed by {selected.nurseReview.signatureName}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1229,8 +1496,23 @@ export default function TreatmentWorkflow() {
                 )}
               </section>
 
-              {isInProgress && (
+              {(isInProgress || isPendingReview) && (
                 <>
+                  {isPendingReview && (
+                    <NurseReviewCard
+                      session={selected}
+                      canFinalize={['nurse', 'admin'].includes(user?.role)}
+                      signature={signature}
+                      setSignature={setSignature}
+                      reviewNotes={reviewNotes}
+                      setReviewNotes={setReviewNotes}
+                      attested={attested}
+                      setAttested={setAttested}
+                      onFinalize={finalizeWithSignature}
+                      loading={actionLoading}
+                    />
+                  )}
+
                   <div className="grid gap-5 2xl:grid-cols-2">
                     <section className="card p-5">
                       <h3 className="font-extrabold text-slate-900">
@@ -1465,16 +1747,25 @@ export default function TreatmentWorkflow() {
                             }
                           />
 
-                          <button
-                            type="button"
-                            className="btn-primary mt-3"
-                            onClick={completeAndClean}
-                            disabled={actionLoading}
-                          >
-                            {actionLoading
-                              ? 'Completing...'
-                              : 'Complete Treatment + Clean Chair'}
-                          </button>
+                          {isPendingReview ? (
+                            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                              Review the record below, then sign and close this
+                              session using the review panel at the top.
+                            </p>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-primary mt-3"
+                              onClick={completeAndClean}
+                              disabled={actionLoading}
+                            >
+                              {actionLoading
+                                ? (isTechnician ? 'Submitting...' : 'Completing...')
+                                : (isTechnician
+                                    ? 'Submit for Nurse Review'
+                                    : 'Complete Treatment + Clean Station')}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </section>
@@ -1495,6 +1786,13 @@ export default function TreatmentWorkflow() {
                     onDelete={deleteSessionMed}
                     onCancel={cancelSessionMed}
                   />
+
+                  <section className="card p-5">
+                    <LabPanel
+                      patientId={selected?.patient?._id || selected?.patient}
+                      session={selected?._id}
+                    />
+                  </section>
 
                   {allowNote && (
                     <SessionNotesCard
@@ -1708,7 +2006,7 @@ export default function TreatmentWorkflow() {
                         selected.patient?.mrn || '—',
                       ],
                       [
-                        'Chair',
+                        'Station',
                         selected.chair?.code ||
                           selected.chair
                             ?.chairNumber ||

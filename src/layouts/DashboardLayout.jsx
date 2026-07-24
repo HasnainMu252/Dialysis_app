@@ -9,8 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import { notificationApi } from '../api/notificationApi';
 import { isReadByUser } from '../utils/format';
 import { navForRole } from '../utils/permissions';
-import Azuza from '../assets/Azuza.png'
-import Aegle from '../assets/Aegle.png'
+import Azuza from '../Assets/Azuza.png'
+import Aegle from '../Assets/Aegle.png'
 const ICONS = {
   home: Home, users: Users, calendar: CalendarDays, chair: Armchair, wrench: Wrench,
   activity: Activity, stethoscope: Stethoscope, chart: BarChart3, card: CreditCard, bell: Bell,

@@ -45,7 +45,7 @@ export default function DialysisBilling() {
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
-            <tr><th className="px-4 py-3">Patient</th><th className="px-4 py-3">Chair</th><th className="px-4 py-3">Treatment Date</th><th className="px-4 py-3">Duration</th><th className="px-4 py-3">Treatment Count</th><th className="px-4 py-3">Billing Status</th></tr>
+            <tr><th className="px-4 py-3">Patient</th><th className="px-4 py-3">Station</th><th className="px-4 py-3">Treatment Date</th><th className="px-4 py-3">Duration</th><th className="px-4 py-3">Treatment Count</th><th className="px-4 py-3">Billing Status</th></tr>
           </thead>
           <tbody className="divide-y">
             {paged.map((r) => (

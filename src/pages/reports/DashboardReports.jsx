@@ -92,7 +92,7 @@ export default function DashboardReports() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Active Patients" value={overview?.patients?.active ?? 0} icon={Users} />
-        <StatCard title="Chairs" value={overview?.chairs?.total ?? 0} icon={Armchair} />
+        <StatCard title="Stations" value={overview?.chairs?.total ?? 0} icon={Armchair} />
         <StatCard title="Schedules" value={overview?.schedules?.total ?? 0} icon={CalendarDays} />
         <StatCard title="Sessions" value={overview?.sessions?.total ?? 0} icon={Activity} />
         <StatCard title="Paid Revenue" value={Number(overview?.billing?.paidRevenue || 0).toLocaleString()} icon={CreditCard} />
@@ -100,7 +100,7 @@ export default function DashboardReports() {
 
       <div className="grid gap-5 xl:grid-cols-3">
         <section className="card p-5"><h2 className="mb-4 font-bold">Sessions by Status</h2><ResponsiveContainer width="100%" height={260}><BarChart data={sessionChart}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" /></BarChart></ResponsiveContainer></section>
-        <section className="card p-5"><h2 className="mb-4 font-bold">Chairs by Status</h2><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={chairChart} dataKey="value" nameKey="name" outerRadius={95} label>{chairChart.map((_, i) => <Cell key={i} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></section>
+        <section className="card p-5"><h2 className="mb-4 font-bold">Stations by Status</h2><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={chairChart} dataKey="value" nameKey="name" outerRadius={95} label>{chairChart.map((_, i) => <Cell key={i} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></section>
         <section className="card p-5"><h2 className="mb-4 font-bold">Claims by Status</h2><ResponsiveContainer width="100%" height={260}><BarChart data={claimChart}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" /></BarChart></ResponsiveContainer></section>
       </div>
 

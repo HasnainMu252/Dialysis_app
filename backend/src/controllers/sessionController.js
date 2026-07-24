@@ -3,6 +3,7 @@ import DialysisSession from '../models/DialysisSession.js';
 import QueueEntry from '../models/QueueEntry.js';
 import Chair from '../models/Chair.js';
 import { ApiError } from '../utils/apiError.js';
+import { buildSessionCode, slotFor } from '../utils/sessionCode.js';
 import { writeAudit } from '../utils/audit.js';
 
 export const listSessions = asyncHandler(async (req, res) => {
@@ -31,10 +32,36 @@ export const listSessions = asyncHandler(async (req, res) => {
     });
   }
 
+  // Sessions embed the populated schedule directly (they don't pass through
+  // formatSchedule), so normalise the session code here too. This rebuilds
+  // codes that are missing or in the old format (slot 0 / 8-digit date).
+  const normalised = data.map((s) => {
+    const obj = s.toObject ? s.toObject() : s;
+    const sched = obj.schedule;
+    if (sched && typeof sched === 'object') {
+      const resolvedShift = sched.shift ?? slotFor(sched.startTime) ?? null;
+      const stale =
+        !sched.sessionCode ||
+        /-0-/.test(sched.sessionCode) ||
+        /-\d{8}$/.test(sched.sessionCode);
+      sched.shift = resolvedShift;
+      if (stale) {
+        sched.sessionCode = buildSessionCode({
+          chairDoc: obj.chair,
+          chairCode: sched.chairCode,
+          startTime: sched.startTime,
+          date: sched.date,
+          shift: resolvedShift,
+        });
+      }
+    }
+    return obj;
+  });
+
   res.json({
     success: true,
-    count: data.length,
-    data,
+    count: normalised.length,
+    data: normalised,
   });
 });
 
@@ -178,6 +205,16 @@ export const addSoap = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * PATCH /api/v1/sessions/:id/complete
+ *
+ * Role-aware completion:
+ *  - TECHNICIAN -> submits for nurse review. Status becomes 'pending_review';
+ *    the session is NOT closed and the station is not released yet.
+ *  - NURSE / ADMIN -> closes the session directly (from in_progress) or
+ *    finalises a technician submission (from pending_review) via
+ *    finalizeSession below.
+ */
 export const completeSession = asyncHandler(async (req, res) => {
   const session = await DialysisSession.findById(req.params.id).populate('schedule', 'bufferMinutes');
 
@@ -187,6 +224,32 @@ export const completeSession = asyncHandler(async (req, res) => {
 
   if (session.status !== 'in_progress') {
     throw new ApiError(400, 'Only in-progress sessions can be completed');
+  }
+
+  // Technicians cannot close a session — it goes to the nurse for sign-off.
+  if (req.user?.role === 'technician') {
+    session.status = 'pending_review';
+    session.submittedForReviewAt = new Date();
+    session.submittedForReviewBy = req.user._id;
+    session.submittedForReviewByName = req.user.name;
+    session.submittedForReviewByRole = req.user.role;
+    session.submissionNotes = req.body.treatmentSummary || '';
+    if (req.body.treatmentSummary) session.treatmentSummary = req.body.treatmentSummary;
+
+    await session.save();
+
+    await writeAudit({
+      user: req.user,
+      action: 'session.submitForReview',
+      entity: 'DialysisSession',
+      entityId: session._id,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Submitted for nurse review',
+      data: session,
+    });
   }
 
   session.status = 'completed';
@@ -312,4 +375,72 @@ export const deleteTechnicianNote = asyncHandler(async (req, res) => {
   await session.save();
 
   res.json({ success: true, message: 'Note removed', data: session.technicianNotes });
+});
+
+/**
+ * PATCH /api/v1/sessions/:id/finalize
+ * Nurse (or admin) reviews a technician-submitted session and closes it with a
+ * digital signature. This is the authoritative close: it sets 'completed',
+ * releases the station into its cleaning/buffer window and sends to billing.
+ *
+ * body: { signatureName, attested, reviewNotes, treatmentSummary }
+ */
+export const finalizeSession = asyncHandler(async (req, res) => {
+  const session = await DialysisSession.findById(req.params.id).populate('schedule', 'bufferMinutes');
+  if (!session) throw new ApiError(404, 'Session not found');
+
+  if (session.status !== 'pending_review') {
+    throw new ApiError(400, 'Only sessions pending review can be finalised');
+  }
+
+  const signatureName = String(req.body?.signatureName || '').trim();
+  if (!signatureName) {
+    throw new ApiError(400, 'A digital signature (your full name) is required to close this session');
+  }
+  if (req.body?.attested === false) {
+    throw new ApiError(400, 'You must attest that the record has been reviewed');
+  }
+
+  session.status = 'completed';
+  session.completedAt = new Date();
+  session.completedBy = req.user?._id;
+  if (req.body?.treatmentSummary) session.treatmentSummary = req.body.treatmentSummary;
+  session.sentToBillerAt = new Date();
+  session.nurseReview = {
+    reviewedBy: req.user?._id,
+    reviewedByName: req.user?.name,
+    reviewedByRole: req.user?.role,
+    reviewedAt: new Date(),
+    signatureName,
+    attested: true,
+    reviewNotes: req.body?.reviewNotes || '',
+  };
+
+  await session.save();
+
+  // Station enters its cleaning/buffer window only once the nurse has closed.
+  const bufferMin = Number(session.schedule?.bufferMinutes) || 30;
+  await Chair.findByIdAndUpdate(session.chair, {
+    status: 'cleaning',
+    currentSession: null,
+    cleaningUntil: new Date(Date.now() + bufferMin * 60 * 1000),
+  });
+
+  await QueueEntry.findOneAndUpdate(
+    { session: session._id },
+    { status: 'completed' }
+  );
+
+  await writeAudit({
+    user: req.user,
+    action: 'session.finalize',
+    entity: 'DialysisSession',
+    entityId: session._id,
+  });
+
+  res.json({
+    success: true,
+    message: 'Session reviewed and closed',
+    data: session,
+  });
 });

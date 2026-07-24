@@ -737,3 +737,159 @@ Syntax-validated (frontend JSX, backend node --check). No new dependencies.
 
 Syntax-validated (backend node --check × 82, frontend JSX) and the report workbook
 status/reason columns verified in-container. No new dependencies.
+
+---
+
+## Revision 28 — Laboratory module, shifts + session codes, Station rename, nurse review sign-off
+
+### Laboratory Management (new)
+- New `LabReport` model: patient-scoped, optionally linked to a dialysis session.
+  Fields: testName, category, testDate, result, notes, files[], plus a full
+  uploader trail (`uploadedAt/By/Name/Role`) and soft-delete trail.
+- Uploads accept **images and documents**: PNG, JPG/JPEG, WEBP, GIF, HEIC, PDF,
+  Word (doc/docx), Excel (xls/xlsx), CSV, TXT — up to 20 MB, multiple files.
+- Endpoints: `GET /labs` (any authenticated role), `POST /labs`, `DELETE /labs/:id`
+  (**nurse / doctor / admin only** — everyone else is view-only, enforced server-side).
+- New `components/common/LabPanel.jsx` used in **two places**: inside the Treatment
+  Workflow (uploads attach to the running session and are tagged "During dialysis")
+  and on a new **Lab Reports** patient tab (standalone uploads). Every report shows
+  who uploaded it and when.
+
+### Shifts + shift filter
+- `SHIFTS` constant (backend + frontend): 1st **05:00-08:00**, 2nd **09:00-12:00**,
+  3rd **12:30-16:00**. The gaps (08:00-09:00, 12:00-12:30) are station
+  cleaning/buffer time; a booking inside a gap groups with the upcoming shift.
+- `Schedule` now stores a derived `shift` (1/2/3).
+- `GET /schedules?shift=N` filters by shift, with a `startTime` fallback so
+  schedules created before this field existed still resolve.
+- Treatment Workflow gains a **Shift** dropdown that filters the session list.
+
+### Session codes
+- `Schedule.sessionCode` = **{station}-{shift}-{YYYYMMDD}**, unique per station,
+  shift and day. Verified: station 1 / 2nd shift / 23 Jul 2026 -> `1-2-20260723`.
+- Shown as a badge on schedule cards and in the workflow session header, next to
+  a shift label.
+
+### Chair -> Station (UI only)
+- All user-visible "Chair"/"Chairs" text renamed to "Station"/"Stations" across 16
+  files, plus prose strings. Database models, fields and API names (`Chair`,
+  `chairCode`, `chairApi`, `CHAIR_STATUS`) are unchanged — no migration needed.
+
+### Technician submits -> Nurse reviews and signs off
+- New session status **`pending_review`**.
+- When a **technician** completes a treatment, the session moves to
+  `pending_review` with `submittedForReviewAt/By/Name/Role`. The station is NOT
+  released and the session is NOT closed.
+- New `PATCH /sessions/:id/finalize` (**nurse / admin only**) requires a typed
+  **digital signature** plus an attestation checkbox. It closes the session,
+  records `nurseReview` (signature, reviewer identity, timestamp, notes), releases
+  the station into its cleaning/buffer window and sends to billing.
+- New `components/workflow/NurseReviewCard.jsx` shows who submitted and when, with
+  the signature + attestation form. The complete button now reads
+  "Submit for Nurse Review" for technicians and
+  "Complete Treatment + Clean Station" for nurses.
+- A nurse running the session herself still completes directly (no review step).
+
+Syntax-validated (backend `node --check` x 86, frontend JSX) and models + shift/
+sessionCode derivation verified in-container. No new dependencies.
+
+---
+
+## Revision 29 — Nurse review queue, corrected session code format, lab document viewer
+
+### Session code format fixed
+- Was rendering like `ASDASD-0-20260723`. Two bugs:
+  1. the station segment fell back to the free-text `chairCode` ("ASDASD"),
+  2. the slot resolved to `0` when the start time fell outside a shift window.
+- New `utils/sessionCode.js`:
+  - **Station** now comes from the chair's auto-generated `chairNumber`
+    ("CH-07" -> 7), falling back to digits in the chair code.
+  - **Slot** never resolves to 0 — gap/out-of-range times clamp to a real shift.
+  - **Date** is now **DD-MM-YYYY**.
+- Result: `1-1-23-07-2026` (station-slot-date). Verified in-container.
+- `formatSchedule` recomputes the code on read when it is missing or in the old
+  format, so existing schedules display correctly without a migration.
+
+### Nurse review queue
+- New **Pending Review** tab in the Treatment Workflow (next to Scheduled and
+  Completed) with a live count, listing only technician-submitted sessions
+  awaiting sign-off. `pending_review` added to the active statuses.
+- New **"Dialysis Pending Your Review"** panel on the Nurse Dashboard listing each
+  submitted session with patient, session code, station, and who submitted it and
+  when, plus a "Review & Sign Off" button through to the workflow.
+
+### Lab document viewer
+- Lab file chips now open an in-app **viewer popup** instead of a raw link:
+  images render inline, PDFs use the existing PdfViewer, and Word/Excel/other
+  documents get a download/open panel. Includes an "Open in new tab" action.
+- Images are fetched through the authenticated axios instance and rendered from a
+  blob URL, because the `/files` route requires an Authorization header that a
+  plain `<img src>` cannot send.
+
+Syntax-validated (backend `node --check` x 87, frontend JSX). No new dependencies.
+
+---
+
+## Revision 30 — Pending-review sessions now show the full record; schedule detail; session code in session views
+
+### Bug: a session pending review showed only the header card
+- Root cause: the entire working area (vitals, SOAP, medications, home
+  medications, labs, session notes — and even the nurse review card) was wrapped
+  in `{isInProgress && ...}`. A `pending_review` session matched none of the
+  state flags, so nothing rendered.
+- Fixed: the block now renders for `isInProgress || isPendingReview`. The nurse
+  sees and can **edit/correct** medications, home medications, labs, vitals, SOAP
+  and notes before signing off.
+- The **NurseReviewCard moved to the top** of the panel so the sign-off is the
+  first thing the nurse sees.
+- The Complete button is hidden while pending review (the review panel is the
+  action); it is replaced by a short instruction line.
+
+### Schedule detail added to the session header
+- New **Schedule Detail** block showing appointment date, time (start-end),
+  shift, station, booked-by, checked-in time, duration and session code.
+  Previously only Created / Started / Completed were visible.
+
+### Session code corrected in session views
+- Sessions embed the populated schedule directly and never passed through
+  `formatSchedule`, so they still rendered the old `2-3-20260724` format.
+- `listSessions` now normalises the embedded schedule: it recomputes the shift
+  and rebuilds any code that is missing or stale (slot `0` or an 8-digit date).
+- Verified: `2-3-20260724` -> **`2-3-24-07-2026`** (station-shift-appointment date).
+
+Syntax-validated (backend `node --check` x 87, frontend JSX) and the code
+normalisation verified in-container. No new dependencies.
+
+---
+
+## Revision 31 — Lab file 404 fix, submitted-vs-completed timestamps, patient form changes
+
+### Lab document 404 fixed (uploads path mismatch)
+- `app.js` served static uploads from `process.cwd()/uploads`, while multer wrote
+  to `<backend>/uploads` (resolved from the middleware file) and the `/files`
+  route resolved from `<backend>/uploads` too. When the API process is started
+  from a different working directory these diverge, and lab images 404'd.
+- New `utils/uploadsPath.js` is now the single source of truth:
+  `UPLOADS_ROOT` (resolved from the source tree, not the cwd), `ensureUploadDir()`
+  and `resolveUploadFile()` which checks the canonical root **and** the
+  cwd-relative folder before giving up.
+- Wired into the `/files` route, the lab upload middleware and the static mount,
+  so all three now agree. Path-traversal guard verified in-container.
+
+### Submitted vs completed timestamps
+- The session header showed a single "Completed" box, which was ambiguous for
+  technician-submitted sessions. It is now split:
+  - **Submitted by technician** — `submittedForReviewAt` + the technician's name
+  - **Completed (nurse sign-off)** — `completedAt` + "Signed by <signature>"
+- Confirmed the technician submit path never sets `completedAt`; only the nurse
+  finalize (or a nurse completing directly) does.
+
+### Patient form
+- **Removed "Renal Failure Due To Accident"** from the create form, the patient
+  edit form, the read-only medical history view and the form preview.
+- **"Had Dialysis Before" is now a yes / no / unknown select.** The
+  **Previous Dialysis Location** and **Previous Dialysis Date** fields only appear
+  when it is set to **yes**; choosing anything else clears them. The read-only
+  view and the form preview hide those rows unless the answer is yes.
+
+Syntax-validated (backend `node --check` x 88, frontend JSX). No new dependencies.

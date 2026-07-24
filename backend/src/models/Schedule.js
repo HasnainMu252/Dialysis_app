@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { shiftIdFor } from '../utils/constants.js';
+import { buildSessionCode, slotFor } from '../utils/sessionCode.js';
 
 const scheduleSchema = new mongoose.Schema(
   {
@@ -12,6 +14,24 @@ const scheduleSchema = new mongoose.Schema(
       type: String,
       unique: true,
       index: true,
+    },
+
+    /**
+     * Human-facing session code: {station}-{shift}-{YYYYMMDD}
+     * e.g. station 1, 1st shift, 23 Jul 2026 -> "1-1-20260723".
+     * Unique per station + shift + day.
+     */
+    sessionCode: {
+      type: String,
+      index: true,
+      trim: true,
+    },
+
+    /** 1 | 2 | 3 — derived from startTime (see SHIFTS in utils/constants). */
+    shift: {
+      type: Number,
+      index: true,
+      default: null,
     },
 
     patientMrn: {
@@ -186,6 +206,41 @@ scheduleSchema.pre('validate', async function (next) {
 
     this.scheduleId = this.scheduleId || newScheduleId;
     this.code = this.code || this.scheduleId;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Derive shift + sessionCode ({station}-{shift}-{YYYYMMDD}) from the booking.
+ * Station number is taken from the chair code (e.g. "CH-002" -> 2), falling
+ * back to the raw chair code when it isn't numeric.
+ */
+scheduleSchema.pre('validate', async function (next) {
+  try {
+    // Slot never falls back to 0: gap/out-of-range times clamp to a real shift.
+    this.shift = slotFor(this.startTime) ?? this.shift ?? null;
+
+    // Station number comes from the chair's auto-generated chairNumber
+    // (CH-07 -> 7), because chairCode is free text the user types.
+    let chairDoc = null;
+    if (this.chair) {
+      chairDoc = await mongoose
+        .model('Chair')
+        .findById(this.chair)
+        .select('chairNumber code')
+        .lean();
+    }
+
+    this.sessionCode = buildSessionCode({
+      chairDoc,
+      chairCode: this.chairCode,
+      startTime: this.startTime,
+      date: this.date,
+      shift: this.shift,
+    });
 
     next();
   } catch (error) {

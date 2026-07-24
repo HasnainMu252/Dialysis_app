@@ -48,7 +48,7 @@ export default function ChairClearance() {
 
   const [chairCode, setChairCode] = useState('');
   const [status, setStatus] = useState('available');
-  const [notes, setNotes] = useState('Chair cleaned and ready for next patient.');
+  const [notes, setNotes] = useState('Station cleaned and ready for next patient.');
   const [checklist, setChecklist] = useState(makeChecklist('available'));
 
   const load = () => {
@@ -80,10 +80,10 @@ export default function ChairClearance() {
   const changeStatus = (value) => {
     setStatus(value);
     setChecklist(makeChecklist(value));
-    if (value === 'maintenance') setNotes('Issue found. Chair moved to maintenance.');
-    if (value === 'available') setNotes('Chair cleaned and ready for next patient.');
-    if (value === 'cleaning') setNotes('Chair cleaning in progress.');
-    if (value === 'out_of_order') setNotes('Chair not safe for treatment.');
+    if (value === 'maintenance') setNotes('Issue found. Station moved to maintenance.');
+    if (value === 'available') setNotes('Station cleaned and ready for next patient.');
+    if (value === 'cleaning') setNotes('Station cleaning in progress.');
+    if (value === 'out_of_order') setNotes('Station not safe for treatment.');
   };
 
   const submit = async (event) => {
@@ -91,7 +91,7 @@ export default function ChairClearance() {
     if (!chairCode) return toast.error('Select chair');
     try {
       await chairClearanceApi.create(chairCode, { status, notes, checklist });
-      toast.success('Chair clearance saved');
+      toast.success('Station clearance saved');
       load();
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to save chair clearance');
@@ -102,7 +102,7 @@ export default function ChairClearance() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Chair Clearance & 24-Hour Occupancy" subtitle="See each chair's free and reserved hours for the day, synced with schedules, then clear chairs for the next patient." />
+      <PageHeader title="Station Clearance & 24-Hour Occupancy" subtitle="See each chair's free and reserved hours for the day, synced with schedules, then clear chairs for the next patient." />
 
       <section className="card space-y-4 p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -129,7 +129,7 @@ export default function ChairClearance() {
               <div key={chair._id} className="rounded-2xl border border-slate-200 p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <b className="text-slate-900">Chair {code}</b>
+                    <b className="text-slate-900">Station {code}</b>
                     <StatusBadge status={chair.status} />
                   </div>
                   <span className="text-xs font-bold text-slate-500">{reservedHours ? `${reservedHours}h reserved` : 'Fully free'}</span>
@@ -167,9 +167,9 @@ export default function ChairClearance() {
         <h2 className="text-lg font-extrabold text-slate-900">Clear a chair</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <label className="label">Chair</label>
+            <label className="label">Station</label>
             <select className="input" value={chairCode} onChange={(e) => setChairCode(e.target.value)}>
-              <option value="">Select Chair</option>
+              <option value="">Select Station</option>
               {chairs.map((chair) => (
                 <option key={chair._id} value={chairKey(chair)}>{chairKey(chair)} - {chair.status}</option>
               ))}
@@ -199,7 +199,7 @@ export default function ChairClearance() {
           ))}
         </div>
 
-        <button className="btn-primary">Save Chair Clearance</button>
+        <button className="btn-primary">Save Station Clearance</button>
       </form>
 
       <section className="card p-5">
@@ -208,7 +208,7 @@ export default function ChairClearance() {
           {histPage.paged.map((item) => (
             <div className="rounded-xl border p-3 text-sm" key={item._id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <b>Chair {item.chairCode}</b>
+                <b>Station {item.chairCode}</b>
                 <StatusBadge status={item.status} />
               </div>
               <p className="text-slate-600">{item.notes}</p>
