@@ -9,8 +9,8 @@ export const homeMedicationApi = {
   remove: (id) => api.delete(`/home-medications/${id}`),
 };
 
-export const HOME_MED_ROUTES = ['IV', 'Oral', 'Arterial', 'Venous', 'Subcutaneous', 'Inhaled', 'Topical', 'Other'];
-export const HOME_MED_UNITS = ['mg', 'mcg', 'ml', 'IU', 'Units', 'tablet', 'capsule', 'drop', 'puff'];
+export const HOME_MED_ROUTES = ['IV', 'Oral', 'PO', 'Arterial', 'Venous', 'Subcutaneous', 'SL', 'Inhaled', 'Topical', 'Transdermal', 'Ophthalmic', 'Rectal', 'IM', 'Other'];
+export const HOME_MED_UNITS = ['mg', 'mcg', 'ml', 'gm', 'IU', 'Units', 'tablet', 'capsule', 'patch', 'drop', 'puff'];
 export const HOME_MED_FREQUENCIES = [
   'Once daily',
   'Twice daily (BID)',

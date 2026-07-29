@@ -893,3 +893,120 @@ normalisation verified in-container. No new dependencies.
   view and the form preview hide those rows unless the answer is yes.
 
 Syntax-validated (backend `node --check` x 88, frontend JSX). No new dependencies.
+
+---
+
+## Revision 32 — Dialysis prescription (hemodialysis order) + home-med quick add
+
+### Dialysis prescription (doctor-authored order)
+- New `DialysisPrescription` model + controller + routes. Holds the clinically
+  important order fields (frequency, duration, dialysate/bath, bicarb, Na+, Na+
+  variation/modeling, dialyzer, temperature, blood & dialysate flow rate, fluid
+  removal, tubing, needle size, access site, keep-systolic-above, abnormal K+/Na+,
+  comments). The EMR chrome from the source form (app header, nav tabs, accept
+  bar) was intentionally left out.
+- **Only a doctor (or admin) can create/edit.** One **active** prescription per
+  patient; saving supersedes the previous active one, which is **kept as history**.
+  Endpoints: `GET/POST /patients/:id/dialysis-prescription`,
+  `GET /patients/:id/dialysis-prescription/history`.
+- **Doctor form** (`DialysisPrescriptionForm`) uses chip-style selectors with
+  "Other -> free text" for each option group, matching the order look.
+- **Read-only viewer popup** (`DialysisPrescriptionViewer`, "View Prescription"
+  button) for nurse / technician / everyone, so they run the treatment to the
+  doctor's order. Surfaced in:
+  - the patient profile via a new **Dialysis Prescription** tab (doctor sees the
+    form, others see the viewer), and
+  - the **Treatment Workflow** session header (View Prescription button) for the
+    patient whose dialysis is booked.
+
+### Home-medication quick add
+- New `HomeMedQuickAdd` popup seeded from the clinic's Current Medicines list
+  (20 meds across Anti-hypertensives, Cardiovascular, GI, Miscellaneous, Pain,
+  Vitamin), each with its usual dose/unit/route/frequency. Searchable; tapping a
+  medicine adds it to the patient's Home Medications immediately (stays open so
+  several can be added quickly).
+- A **Quick Add** button was placed on both the patient **Home Medications** tab
+  and the **Treatment Workflow** home-medications section.
+
+Syntax-validated (backend `node --check` x 90, frontend JSX) and the prescription
+model verified in-container. No new dependencies.
+
+---
+
+## Revision 33 — Prescription: doctor patient-list button, dashboard stat, bio history
+
+### Doctor dashboard
+- New **Add Prescription / Edit Prescription** action on every patient (in the
+  pending-rounds table and the all-patients grid), linking straight to that
+  patient's Dialysis Prescription tab. The label flips to "Edit Prescription"
+  when an active order already exists. These are on the doctor dashboard only.
+- New **With Prescription** stat card showing how many patients currently have an
+  active order.
+- New lightweight endpoint `GET /dialysis-prescriptions/active-patient-ids`
+  returns the set of patient ids with an active prescription (one call, used for
+  the stat and the per-row label) instead of fetching every prescription.
+
+### Prescription history in the patient bio
+- The prescription model already superseded the previous active order on save;
+  this now surfaces it. The **View Prescription** popup gains a **History** toggle
+  showing every version newest-first, the current one flagged Active and the rest
+  Superseded, each with who wrote it and when. Visible to nurses and technicians.
+- The doctor's Dialysis Prescription tab now shows the order form plus a
+  "View History & Current" button beneath it.
+- Verified: repeated saves keep exactly one active (newest on top) and retain all
+  older versions as history.
+
+Syntax-validated (backend `node --check` x 91, frontend JSX). No new dependencies.
+
+---
+
+## Revision 34 — Quick-add fixes: route enum, edit-before-add, friendly duplicate
+
+### Enum mismatch fixed
+- The quick-add seed used real route abbreviations (PO, SL, Transdermal,
+  Ophthalmic) that were not in the HomeMedication `route` enum, so adding them
+  failed validation. The enum was expanded to include PO, SL, Transdermal,
+  Ophthalmic, Rectal and IM (the frontend route/unit dropdowns were aligned to
+  match, and `gm` / `patch` units added). All 20 seed meds now validate.
+- Mongoose validation errors on add are now converted to a clear message instead
+  of surfacing as a raw error.
+
+### Quick add now prefills for editing (not instant add)
+- Picking a medication from Quick Add loads it into the add form (name, dose,
+  unit, route, frequency) so the user can **adjust the dose/volume** before
+  clicking Add, on both the patient Home Medications tab and the Treatment
+  Workflow. The popup closes on pick and shows a hint.
+
+### Friendly duplicate handling
+- Adding a medication that is already on the patient's ACTIVE home-medication list
+  (case-insensitive) now returns a clear 409 message ("<name> is already on this
+  patient's active home medications. Stop the existing one first...") instead of a
+  confusing error. Stopped/removed meds don't block re-adding.
+
+Syntax-validated (backend `node --check` x 91, frontend JSX) and all seed meds +
+the route enum verified in-container. No new dependencies.
+
+---
+
+## Revision 35 — Fix home-med 500 and billing/claims 403 console errors (UI from user retained)
+
+Adopted the user's uploaded build as the base (their DoctorDashboard and
+TechnicianDashboard UI tweaks retained; backend was identical).
+
+### home-medications PATCH 500 fixed
+- A home-med row whose `route` was outside the enum caused `med.save()` to fail
+  the whole-document re-validation on any update (stop / reactivate / edit),
+  returning 500. `route` is now free-form (still driven by the UI dropdown), so a
+  stale or abbreviated value can never block an unrelated update again.
+- The update handler also converts any remaining validation error into a clear
+  400 message instead of a raw 500.
+
+### billing/claims 403 fixed
+- `/billing/claims` is biller/admin only, but several dashboards requested it for
+  every role, producing 403s in the console. Removed the call for roles that can't
+  access it: the Social Worker dashboard and Patient dashboard no longer request
+  claims, and PatientDetails only fetches claims for biller/admin (null-safe when
+  skipped). Biller pages and the already-guarded DashboardStats are unchanged.
+
+Syntax-validated (backend `node --check` x 91, frontend JSX) and the route-save fix
+verified in-container. No new dependencies.

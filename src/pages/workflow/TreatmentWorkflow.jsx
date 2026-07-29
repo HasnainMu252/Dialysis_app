@@ -42,6 +42,8 @@ import HomeMedicationCard from '../../components/workflow/HomeMedicationCard';
 import SessionNotesCard from '../../components/workflow/SessionNotesCard';
 import NurseReviewCard from '../../components/workflow/NurseReviewCard';
 import LabPanel from '../../components/common/LabPanel';
+import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
+import HomeMedQuickAdd from '../../components/common/HomeMedQuickAdd';
 import CqiPanel from '../../components/common/CqiPanel';
 import { accessTypesForRole } from '../../api/medicationApi';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -502,6 +504,20 @@ export default function TreatmentWorkflow() {
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to stop medication');
     }
+  };
+
+  const quickAddHomeMed = (med) => {
+    // Prefill the workflow's add form so the user can adjust before adding.
+    setHomeMedForm((current) => ({
+      ...current,
+      name: med.name,
+      dose: med.dose,
+      unit: med.unit,
+      route: med.route,
+      frequency: med.frequency,
+      quantity: med.quantity || 1,
+    }));
+    toast.success(`${med.name} loaded — adjust the dose and click Add`);
   };
 
   const saveHomeMed = async () => {
@@ -1298,9 +1314,15 @@ export default function TreatmentWorkflow() {
                     </p>
                   </div>
 
-                  <StatusBadge
-                    status={selected.status}
-                  />
+                  <div className="flex flex-col items-end gap-2">
+                    <StatusBadge
+                      status={selected.status}
+                    />
+                    <DialysisPrescriptionViewer
+                      patientId={selected?.patient?._id || selected?.patient}
+                      buttonClassName="btn-primary"
+                    />
+                  </div>
                 </div>
 
                 {/* Appointment / schedule detail */}
@@ -1822,9 +1844,12 @@ export default function TreatmentWorkflow() {
         </p>
       </div>
 
-      <span className="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-        {homeMeds.filter((m) => m.status === 'active').length} active
-      </span>
+      <div className="flex items-center gap-2">
+        <HomeMedQuickAdd onPick={quickAddHomeMed} />
+        <span className="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+          {homeMeds.filter((m) => m.status === 'active').length} active
+        </span>
+      </div>
     </div>
 
     {/* Horizontal add medication form */}

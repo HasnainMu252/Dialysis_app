@@ -37,25 +37,53 @@ export const addHomeMedication = asyncHandler(async (req, res) => {
   const b = req.body || {};
   if (!b.name || !String(b.name).trim()) throw new ApiError(400, 'Medication name is required');
 
-  const doc = await HomeMedication.create({
+  const name = String(b.name).trim();
+
+  // Friendly duplicate guard: block a second ACTIVE entry of the same medication
+  // for this patient (case-insensitive). Stopped/removed ones don't count, so a
+  // previously discontinued med can be re-added.
+  const existing = await HomeMedication.findOne({
     patient: patient._id,
-    patientMrn: patient.mrn,
-    name: String(b.name).trim(),
-    dose: Number(b.dose) || 0,
-    unit: b.unit || 'mg',
-    route: b.route || 'Oral',
-    frequency: b.frequency || 'Once daily',
-    quantity: Number(b.quantity) || 1,
-    prescribedBy: b.prescribedBy || '',
-    startDate: b.startDate ? new Date(b.startDate) : undefined,
-    endDate: b.endDate ? new Date(b.endDate) : undefined,
-    status: b.status === 'discontinued' ? 'discontinued' : 'active',
-    notes: b.notes || '',
-    addedAt: new Date(),
-    addedBy: req.user._id,
-    addedByName: req.user.name,
-    addedByRole: req.user.role,
-  });
+    status: 'active',
+    name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+  }).lean();
+  if (existing) {
+    throw new ApiError(409, `${name} is already on this patient's active home medications. Stop the existing one first if you need to change it.`);
+  }
+
+  let doc;
+  try {
+    doc = await HomeMedication.create({
+      patient: patient._id,
+      patientMrn: patient.mrn,
+      name,
+      dose: Number(b.dose) || 0,
+      unit: b.unit || 'mg',
+      route: b.route || 'Oral',
+      frequency: b.frequency || 'Once daily',
+      quantity: Number(b.quantity) || 1,
+      prescribedBy: b.prescribedBy || '',
+      startDate: b.startDate ? new Date(b.startDate) : undefined,
+      endDate: b.endDate ? new Date(b.endDate) : undefined,
+      status: b.status === 'discontinued' ? 'discontinued' : 'active',
+      notes: b.notes || '',
+      addedAt: new Date(),
+      addedBy: req.user._id,
+      addedByName: req.user.name,
+      addedByRole: req.user.role,
+    });
+  } catch (err) {
+    // Turn Mongoose validation errors (e.g. an unexpected route value) into a
+    // clear message instead of a raw 500.
+    if (err?.name === 'ValidationError') {
+      const first = Object.values(err.errors || {})[0];
+      throw new ApiError(400, first?.message || 'Some medication details are invalid');
+    }
+    if (err?.code === 11000) {
+      throw new ApiError(409, `${name} is already on this patient's home medications`);
+    }
+    throw err;
+  }
 
   res.status(201).json({ success: true, data: doc, message: 'Home medication added', errors: [] });
 });
@@ -92,7 +120,15 @@ export const updateHomeMedication = asyncHandler(async (req, res) => {
     med.cancelReason = undefined; med.endDate = undefined;
   }
 
-  await med.save();
+  try {
+    await med.save();
+  } catch (err) {
+    if (err?.name === 'ValidationError') {
+      const first = Object.values(err.errors || {})[0];
+      throw new ApiError(400, first?.message || 'Some medication details are invalid');
+    }
+    throw err;
+  }
   res.json({ success: true, data: med, message: 'Home medication updated', errors: [] });
 });
 

@@ -1,7 +1,11 @@
 import mongoose from 'mongoose';
 
-// Reuse the same route vocabulary as dialysis medications for consistency.
-const ROUTES = ['IV', 'Oral', 'Arterial', 'Venous', 'Subcutaneous', 'Inhaled', 'Topical', 'Other'];
+// Reuse the same route vocabulary as dialysis medications, plus the common
+// oral/topical route abbreviations used on standing home-medication lists.
+const ROUTES = [
+  'IV', 'Oral', 'PO', 'Arterial', 'Venous', 'Subcutaneous', 'SL',
+  'Inhaled', 'Topical', 'Transdermal', 'Ophthalmic', 'Rectal', 'IM', 'Other',
+];
 
 // Common home-medication frequencies (free text still allowed via `Other`).
 const FREQUENCIES = [
@@ -29,7 +33,7 @@ const homeMedicationSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, index: true },
     dose: { type: Number, default: 0 },
     unit: { type: String, trim: true, default: 'mg' }, // mg, mcg, ml, IU, Units, tablet...
-    route: { type: String, enum: ROUTES, default: 'Oral' },
+    route: { type: String, trim: true, default: 'Oral' }, // controlled in the UI; free-form here to avoid stale-enum save failures
     frequency: { type: String, trim: true, default: 'Once daily' },
     quantity: { type: Number, default: 1 }, // e.g. tablets per dose
 

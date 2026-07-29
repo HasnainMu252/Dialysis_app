@@ -76,6 +76,7 @@ export const PATIENT_TAB_LABELS = {
   'home medication': 'Home Medications',
   'cqi comments': 'CQI Comments',
   'lab reports': 'Lab Reports',
+  'dialysis prescription': 'Dialysis Prescription',
   'billing history': 'Billing History',
 };
 
@@ -85,7 +86,7 @@ export const PATIENT_TAB_LABELS = {
 const FULL_TABS = [
   'overview', 'full profile', 'medical history', 'insurance form', 'documents',
   'schedules', 'sessions', 'doctor rounds', 'cqi', 'cqi comments',
-  'medication history', 'home medication', 'lab reports', 'billing history',
+  'medication history', 'home medication', 'lab reports', 'dialysis prescription', 'billing history',
 ];
 
 /* Same as Admin but WITHOUT Billing History — for Front Desk, Nurse, Technician. */
@@ -109,7 +110,7 @@ const TABS_BY_ROLE = {
   ],
   [ROLES.DOCTOR]: [
     'overview', 'full profile', 'medical history', 'doctor rounds',
-    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication', 'cqi comments', 'lab reports',
+    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication', 'cqi comments', 'lab reports', 'dialysis prescription',
   ],
   [ROLES.SOCIAL_WORKER]: [
     'overview', 'documents', 'schedules', 'sessions', 'cqi comments',

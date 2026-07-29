@@ -15,6 +15,11 @@ import { uploadExcel } from '../middleware/uploadExcel.js';
 import { getPatientMedicationHistory, getPatientMonthlySummary } from '../controllers/medicationController.js';
 import { listHomeMedications, addHomeMedication } from '../controllers/homeMedicationController.js';
 import { listCqiComments, upsertCqiComment } from '../controllers/cqiCommentController.js';
+import {
+  getActivePrescription,
+  getPrescriptionHistory,
+  upsertPrescription,
+} from '../controllers/dialysisPrescriptionController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { PERMISSIONS } from '../utils/permissions.js';
@@ -60,6 +65,10 @@ router.get('/:idOrMrn/home-medications', authorize(...PERMISSIONS.patientReadAll
 router.post('/:idOrMrn/home-medications', authorize(ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR), addHomeMedication);
 router.get('/:idOrMrn/cqi-comments', authorize(...PERMISSIONS.patientReadAll), listCqiComments);
 router.put('/:idOrMrn/cqi-comments', authorize(ROLES.NURSE, ROLES.TECHNICIAN, ROLES.SOCIAL_WORKER, ROLES.ADMIN), upsertCqiComment);
+// Dialysis prescription (hemodialysis order): doctor writes, everyone reads.
+router.get('/:idOrMrn/dialysis-prescription', authorize(...PERMISSIONS.patientReadAll), getActivePrescription);
+router.get('/:idOrMrn/dialysis-prescription/history', authorize(...PERMISSIONS.patientReadAll), getPrescriptionHistory);
+router.post('/:idOrMrn/dialysis-prescription', authorize(ROLES.DOCTOR, ROLES.ADMIN), upsertPrescription);
 router.get('/:id', authorize(...PERMISSIONS.patientReadAll, ROLES.PATIENT), findPatient);
 router.patch('/:id', authorize(...PERMISSIONS.patientWrite), validate(patientUpdateSchema), updatePatient);
 router.patch('/:id/send-to-biller', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), sendToBiller);

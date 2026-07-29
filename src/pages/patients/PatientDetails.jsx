@@ -27,6 +27,9 @@ import SessionDetailModal from '../../components/common/SessionDetailModal';
 import Portal from '../../components/common/Portal';
 import CqiPanel from '../../components/common/CqiPanel';
 import LabPanel from '../../components/common/LabPanel';
+import DialysisPrescriptionForm from '../../components/common/DialysisPrescriptionForm';
+import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
+import HomeMedQuickAdd from '../../components/common/HomeMedQuickAdd';
 import MedicationActivity from '../../components/common/MedicationActivity';
 import { API_BASE_URL } from '../../constants';
 
@@ -330,6 +333,20 @@ export default function PatientDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, id]);
 
+  const quickAddHomeMed = (med) => {
+    // Prefill the add form so the user can adjust dose/volume before adding.
+    setHomeMedForm((f) => ({
+      ...f,
+      name: med.name,
+      dose: med.dose,
+      unit: med.unit,
+      route: med.route,
+      frequency: med.frequency,
+      quantity: med.quantity || 1,
+    }));
+    toast.success(`${med.name} loaded — adjust the dose and click Add`);
+  };
+
   const saveHomeMed = async () => {
     if (!homeMedForm.name.trim()) { toast.error('Enter a medication name'); return; }
     setSavingHomeMed(true);
@@ -510,10 +527,11 @@ export default function PatientDetails() {
       setInsuranceFormId(ins?._id || null);
       setForm(toEditable(p, ins));
 
+      const canBilling = ['admin', 'biller'].includes(user?.role);
       const [scheduleRes, sessionRes, claimRes, doctorCheckupRes] = await Promise.allSettled([
         scheduleApi.byPatient(p.mrn),
         sessionApi.list({ patient: p._id }),
-        billingApi.listClaims(),
+        canBilling ? billingApi.listClaims() : Promise.resolve(null),
         doctorApi.patientCheckups(p._id),
       ]);
 
@@ -529,7 +547,7 @@ export default function PatientDetails() {
         setSessions(sessionRes.value.data?.data || []);
       }
 
-      if (claimRes.status === 'fulfilled') {
+      if (claimRes.status === 'fulfilled' && claimRes.value) {
         setClaims(
           (claimRes.value.data?.data || []).filter(
             (c) => (c.patient?._id || c.patient) === p._id
@@ -1331,7 +1349,10 @@ export default function PatientDetails() {
 
             {allowHomeMed && (
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">Add a home medication</p>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Add a home medication</p>
+                  <HomeMedQuickAdd onPick={quickAddHomeMed} />
+                </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
                   <input className="input md:col-span-3" placeholder="Medication name" value={homeMedForm.name} onChange={(e) => setHomeMedForm((f) => ({ ...f, name: e.target.value }))} />
                   <input className="input md:col-span-1" type="number" placeholder="Dose" value={homeMedForm.dose} onChange={(e) => setHomeMedForm((f) => ({ ...f, dose: e.target.value }))} />
@@ -1394,6 +1415,26 @@ export default function PatientDetails() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {tab === 'dialysis prescription' && (
+        <section className="card p-5">
+          {['doctor', 'admin'].includes(user?.role) ? (
+            <div className="space-y-5">
+              <DialysisPrescriptionForm patientId={id} />
+              <div className="border-t border-slate-100 pt-4">
+                <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-400">Prescription history</p>
+                <DialysisPrescriptionViewer patientId={id} buttonClassName="btn-light" label="View History & Current" />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h2 className="mb-1 text-lg font-bold">Dialysis Prescription</h2>
+              <p className="mb-4 text-sm text-slate-500">The doctor's hemodialysis order for this patient. Run the treatment according to it.</p>
+              <DialysisPrescriptionViewer patientId={id} buttonClassName="btn-primary" />
+            </div>
+          )}
         </section>
       )}
 

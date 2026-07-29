@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Activity, AlertTriangle, CheckCircle2, ClipboardList, Search, Stethoscope, Users } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
@@ -8,6 +8,8 @@ import EmptyState from '../../components/common/EmptyState';
 import Pagination, { usePagedList } from '../../components/common/Pagination';
 import StatCard from '../../components/ui/StatCard';
 import { doctorApi } from '../../api/doctorApi';
+import { dialysisPrescriptionApi } from '../../api/dialysisPrescriptionApi';
+import { FileText } from 'lucide-react';
 import { personName } from '../../utils/format';
 
 const currentMonth = new Date().getMonth() + 1;
@@ -29,6 +31,8 @@ export default function DoctorDashboard() {
   const [search, setSearch] = useState('');
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(currentYear);
+  const [rxPatientIds, setRxPatientIds] = useState(new Set());
+  const navigate = useNavigate();
 
   const load = async () => {
     setLoading(true);
@@ -48,6 +52,13 @@ export default function DoctorDashboard() {
         }
       });
       setDetails(nextDetails);
+
+      try {
+        const rxRes = await dialysisPrescriptionApi.activePatientIds();
+        setRxPatientIds(new Set(rxRes.data?.data?.patientIds || []));
+      } catch {
+        setRxPatientIds(new Set());
+      }
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to load doctor dashboard');
     } finally {
@@ -99,7 +110,7 @@ export default function DoctorDashboard() {
         action={<button className="btn-light" onClick={load}>Refresh</button>}
       />
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Patients" value={patients.length} icon={Users} />
         <StatCard title="Round 1 Pending" value={roundStats.round1Pending} icon={AlertTriangle} />
         <StatCard title="Round 2 Pending" value={roundStats.round2Pending} icon={ClipboardList} />
@@ -107,6 +118,7 @@ export default function DoctorDashboard() {
         <StatCard title="Round 4 Pending" value={roundStats.round4Pending} icon={Stethoscope} />
         <StatCard title="Completed This Month" value={roundStats.completedThisMonth} icon={CheckCircle2} />
         <StatCard title="Missing Monthly" value={roundStats.missingMonthly} icon={AlertTriangle} />
+        <StatCard title="With Prescription" value={rxPatientIds.size} icon={FileText} />
       </div>
 
       <div className="card grid gap-3 p-4 md:grid-cols-4">
@@ -145,7 +157,14 @@ export default function DoctorDashboard() {
                   <td className="whitespace-nowrap p-3 text-slate-600">{patient.phone || '-'}</td>
                   <td className="whitespace-nowrap p-3"><span className="rounded-lg bg-blue-50 px-2.5 py-1 font-bold text-blue-700">{completedRounds.length}/4</span></td>
                   <td className="whitespace-nowrap p-3"><span className="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">Round {missingRounds.join(', ')}</span></td>
-                  <td className="whitespace-nowrap p-3 text-right"><Link className="inline-flex rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700" to={`/doctor/patients/${patient._id}?tab=doctor%20rounds&addRound=1`}>Open / Add SOAP</Link></td>
+                  <td className="whitespace-nowrap p-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link className="inline-flex items-center gap-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700 transition hover:bg-sky-100" to={`/doctor/patients/${patient._id}?tab=dialysis%20prescription`}>
+                        <FileText size={13} /> {rxPatientIds.has(String(patient._id)) ? 'Edit Prescription' : 'Add Prescription'}
+                      </Link>
+                      <Link className="inline-flex rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700" to={`/doctor/patients/${patient._id}?tab=doctor%20rounds&addRound=1`}>Open / Add SOAP</Link>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -168,6 +187,14 @@ export default function DoctorDashboard() {
               </div>
               <p className="mt-3 text-sm text-slate-600">Diagnosis: {patient.medicalHistory?.diagnosis || 'Not added'}</p>
               <p className="mt-1 text-xs font-bold text-slate-500">Missing: {missingRounds.length ? `Round ${missingRounds.join(', ')}` : 'None'}</p>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.preventDefault(); navigate(`/doctor/patients/${patient._id}?tab=dialysis%20prescription`); }}
+                className="mt-3 inline-flex items-center gap-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700 transition hover:bg-sky-100"
+              >
+                <FileText size={13} /> {rxPatientIds.has(String(patient._id)) ? 'Edit Prescription' : 'Add Prescription'}
+              </span>
             </Link>
           ))}
         </div>

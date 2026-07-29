@@ -24,7 +24,8 @@ export default function SocialWorkerDashboard() {
 
   const load = async () => {
     try {
-      const [p, sch, ses, cl] = await Promise.allSettled([patientApi.list(), scheduleApi.list(), sessionApi.list(), billingApi.listClaims()]);
+      const [p, sch, ses] = await Promise.allSettled([patientApi.list(), scheduleApi.list(), sessionApi.list()]);
+      const cl = { status: 'fulfilled', value: { data: { data: [] } } };
       if (p.status === 'fulfilled') setPatients(p.value.data?.data || []);
       if (sch.status === 'fulfilled') setSchedules(sch.value.data?.schedules || []);
       if (ses.status === 'fulfilled') setSessions(ses.value.data?.data || []);
