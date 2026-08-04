@@ -175,6 +175,8 @@ export const bulkUploadPatients = asyncHandler(async (req, res) => {
     const lastName = String(row['Last Name'] || parts.slice(1).join(' ') || '').trim();
 
     if (!firstName || !lastName) continue;
+    // Skip the template's example row so it never becomes a real patient.
+    if (firstName === 'John' && lastName === 'Smith' && String(row.Email || '').trim() === 'john.smith@email.com') continue;
 
     patients.push({
       mrn: row.MRN ? String(row.MRN).trim().toUpperCase() : await generateMrn(),

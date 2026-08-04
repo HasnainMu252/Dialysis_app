@@ -1010,3 +1010,42 @@ TechnicianDashboard UI tweaks retained; backend was identical).
 
 Syntax-validated (backend `node --check` x 91, frontend JSX) and the route-save fix
 verified in-container. No new dependencies.
+
+---
+
+## Revision 36 — Patient bulk-upload Excel template
+
+- Added a ready-to-fill **patient bulk-upload template** (`patient_bulk_upload_template.xlsx`)
+  whose column headers match the existing `/patients/bulk-upload` importer exactly
+  (First Name, Last Name, MRN, DOB, Gender, Phone, Email, Address, Status,
+  Referral Source, Diagnosis, Dialysis Frequency, Access Type, Allergies, Medical
+  Notes, Emergency Contact Name/Relation/Phone, Provider Name, Insurance / Payer,
+  Policy/Group Number, Member ID, Plan Type, Coverage Status, Insurance Expiry
+  Date, IPA / Medical Group, PCP Name, Dialysis Coverage, Authorization Required,
+  Transportation Benefits, Deductible, Coinsurance, OOP Max, Care Coordination
+  Flags). Verified every importer header is present and the sheet parses through
+  the importer's XLSX logic.
+- The template has three sheets: **Patients** (fill-in, with a formatted header row,
+  an example row, dropdowns for Gender/Status/Coverage Status/Authorization
+  Required, and green = required / navy = optional headers), **Instructions**, and
+  **Field Reference**.
+- The importer now **skips the template's example row** (John Smith) so it never
+  becomes a real patient.
+
+Backend `node --check` x 91. No new dependencies. (Bulk-upload UI and API already
+existed in PatientList / patientApi.)
+
+---
+
+## Revision 37 — Nurses can add dialysis prescriptions
+
+- The dialysis prescription (hemodialysis order) write endpoint now allows the
+  NURSE role in addition to doctor/admin:
+  `POST /patients/:id/dialysis-prescription` authorizes DOCTOR, NURSE, ADMIN.
+- The patient's Dialysis Prescription tab now shows the editable order form to
+  nurses (previously view-only for them); technicians and other roles remain
+  view-only. History/supersede behaviour is unchanged — a nurse saving a new
+  order supersedes the previous active one and keeps it in history, attributed to
+  the nurse.
+
+Backend `node --check` x 91, frontend JSX clean. No new dependencies.

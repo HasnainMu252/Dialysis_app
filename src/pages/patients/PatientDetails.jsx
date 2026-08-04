@@ -1420,7 +1420,7 @@ export default function PatientDetails() {
 
       {tab === 'dialysis prescription' && (
         <section className="card p-5">
-          {['doctor', 'admin'].includes(user?.role) ? (
+          {['doctor', 'nurse', 'admin'].includes(user?.role) ? (
             <div className="space-y-5">
               <DialysisPrescriptionForm patientId={id} />
               <div className="border-t border-slate-100 pt-4">

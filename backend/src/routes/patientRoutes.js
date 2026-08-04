@@ -68,7 +68,7 @@ router.put('/:idOrMrn/cqi-comments', authorize(ROLES.NURSE, ROLES.TECHNICIAN, RO
 // Dialysis prescription (hemodialysis order): doctor writes, everyone reads.
 router.get('/:idOrMrn/dialysis-prescription', authorize(...PERMISSIONS.patientReadAll), getActivePrescription);
 router.get('/:idOrMrn/dialysis-prescription/history', authorize(...PERMISSIONS.patientReadAll), getPrescriptionHistory);
-router.post('/:idOrMrn/dialysis-prescription', authorize(ROLES.DOCTOR, ROLES.ADMIN), upsertPrescription);
+router.post('/:idOrMrn/dialysis-prescription', authorize(ROLES.DOCTOR, ROLES.NURSE, ROLES.ADMIN), upsertPrescription);
 router.get('/:id', authorize(...PERMISSIONS.patientReadAll, ROLES.PATIENT), findPatient);
 router.patch('/:id', authorize(...PERMISSIONS.patientWrite), validate(patientUpdateSchema), updatePatient);
 router.patch('/:id/send-to-biller', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), sendToBiller);
