@@ -74,7 +74,6 @@ const initialForm = {
     maritalStatus: '',
     spouseSsn: '',
     religion: '',
-    secondaryPayerAddress: '',
     patientSignature: '',
     patientSignatureDate: '',
     policyHolderSignature: '',
@@ -163,13 +162,21 @@ export default function PatientCreate() {
   };
 
   const setInsurance = (field, value) => {
-    setForm((p) => ({
-      ...p,
-      insurance: {
-        ...p.insurance,
-        [field]: value,
-      },
-    }));
+    setForm((p) => {
+      // Mirror shared identifiers into the detailed Primary Insurance section so
+      // the same value doesn't need typing twice — but only when that field is
+      // still empty there, so we never overwrite something already entered.
+      const mirrored = ['providerName', 'payerName', 'policyNumber', 'groupNumber', 'planType'];
+      const primary = p.insuranceForm?.primaryInsurance || {};
+      const nextPrimary = mirrored.includes(field) && !String(primary[field] || '').trim()
+        ? { ...primary, [field]: value }
+        : primary;
+      return {
+        ...p,
+        insurance: { ...p.insurance, [field]: value },
+        insuranceForm: { ...p.insuranceForm, primaryInsurance: nextPrimary },
+      };
+    });
   };
 
   const setInsuranceForm = (field, value) => {
@@ -334,7 +341,7 @@ export default function PatientCreate() {
           payerName: form.insurance.payerName,
           policyNumber: form.insurance.policyNumber,
           groupNumber: form.insurance.groupNumber,
-          memberId: form.insurance.memberId,
+          memberId: form.insuranceForm?.primaryInsurance?.memberId || '',
           planType: form.insurance.planType,
           coverageStatus: form.insurance.coverageStatus || 'not_submitted',
           effectiveDate: form.insurance.effectiveDate || undefined,
@@ -748,13 +755,6 @@ export default function PatientCreate() {
               value={form.registration.religion}
               onChange={(v) => setNested('registration', 'religion', v)}
             />
-            <TextAreaField
-              label="Secondary Payer Address"
-              value={form.registration.secondaryPayerAddress}
-              onChange={(v) =>
-                setNested('registration', 'secondaryPayerAddress', v)
-              }
-            />
             <TextField
               label="Patient Signature"
               value={form.registration.patientSignature}
@@ -818,11 +818,6 @@ export default function PatientCreate() {
                 label="Group Number"
                 value={form.insurance.groupNumber}
                 onChange={(v) => setInsurance('groupNumber', v)}
-              />
-              <TextField
-                label="Member ID"
-                value={form.insurance.memberId}
-                onChange={(v) => setInsurance('memberId', v)}
               />
               <TextField
                 label="Plan Type"

@@ -100,7 +100,7 @@ export default function PatientFormPreview({ form, documentFile, documentType })
           ['SSN', reg.ssn ? '•••-••-' + String(reg.ssn).slice(-4) : '-'],
           ['Marital Status', reg.maritalStatus],
           ['Spouse SSN', reg.spouseSsn ? '•••-••-' + String(reg.spouseSsn).slice(-4) : '-'],
-          ['Religion', reg.religion], ['Secondary Payer Address', reg.secondaryPayerAddress],
+          ['Religion', reg.religion],
           ['Patient Signature', reg.patientSignature], ['Patient Signature Date', reg.patientSignatureDate],
           ['Policy Holder Signature', reg.policyHolderSignature], ['Policy Holder Signature Date', reg.policyHolderSignatureDate],
         ]} />
@@ -112,7 +112,7 @@ export default function PatientFormPreview({ form, documentFile, documentType })
           ['Clinic Name', iForm.clinicName], ['Form Status', iForm.formStatus], ['Approval Status', iForm.approvalStatus],
           ['Approval Reference', iForm.approvalReference], ['Valid From', iForm.approvalValidFrom], ['Valid To', iForm.approvalValidTo],
           ['Due Date', iForm.dueDate], ['Rejection Reason', iForm.rejectionReason],
-          ['Quick Insurance / Payer', ins.providerName], ['Quick Member ID', ins.memberId],
+          ['Quick Insurance / Payer', ins.providerName],
           ['Quick Policy Number', ins.policyNumber], ['Quick Coverage Status', ins.coverageStatus],
           ['Insurance Expiry (dashboard)', ins.expiryDate],
         ]} />

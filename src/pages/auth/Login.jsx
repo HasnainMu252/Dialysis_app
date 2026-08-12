@@ -8,18 +8,6 @@ import { useAuth } from '../../context/AuthContext';
 import Aegle from '../../Assets/Aegle.png';
 import Azuza from '../../Assets/Azuza.png';
 
-const quickUsers = [
-  ['Admin', 'admin@test.com', '12345678'],
-  ['Front Desk', 'frontdesk@test.com', '12345678'],
-  ['Nurse', 'nurse@test.com', '12345678'],
-  ['Technician', 'tech@test.com', '12345678'],
-  ['Biller', 'biller@test.com', '12345678'],
-  ['Social Worker', 'social@test.com', '12345678'],
-  ['Insurance', 'insurance@test.com', 'Insurance12345'],
-  ['Doctor', 'doctor@test.com', '12345678'],
-  ['Patient', 'patient@test.com', '12345678'],
-];
-
 const slides = [
   {
     from: 'from-blue-700',
@@ -225,41 +213,17 @@ function CheckIcon() {
   );
 }
 
-function ChevronIcon({ open }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={`h-5 w-5 text-slate-400 transition-transform duration-300 ${
-        open ? 'rotate-180' : ''
-      }`}
-      aria-hidden="true"
-    >
-      <path
-        d="m7 10 5 5 5-5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export default function Login() {
   const [form, setForm] = useState({
-    email: 'admin@test.com',
-    password: '12345678',
+    email: '',
+    password: '',
     mfaToken: '',
   });
 
   const [loading, setLoading] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showQuickUsers, setShowQuickUsers] = useState(false);
   const [slide, setSlide] = useState(0);
-
-  const quickUsersRef = useRef(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -271,31 +235,6 @@ export default function Login() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const closeQuickUsers = (event) => {
-      if (
-        quickUsersRef.current &&
-        !quickUsersRef.current.contains(event.target)
-      ) {
-        setShowQuickUsers(false);
-      }
-    };
-
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') {
-        setShowQuickUsers(false);
-      }
-    };
-
-    document.addEventListener('mousedown', closeQuickUsers);
-    document.addEventListener('keydown', closeOnEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', closeQuickUsers);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
   }, []);
 
   const updateField = (field, value) => {
@@ -313,17 +252,6 @@ export default function Login() {
     }));
 
     setMfaRequired(false);
-  };
-
-  const selectQuickUser = (email, password) => {
-    setForm({
-      email,
-      password,
-      mfaToken: '',
-    });
-
-    setMfaRequired(false);
-    setShowQuickUsers(false);
   };
 
   const submit = async (event) => {
@@ -746,101 +674,6 @@ export default function Login() {
                 )}
               </button>
             </form>
-
-            {/* Demo access */}
-            {!mfaRequired && (
-              <div className="mt-4 border-t border-slate-100 pt-4 [@media(max-height:700px)]:mt-3 [@media(max-height:700px)]:pt-3">
-                <div ref={quickUsersRef} className="relative">
-                  {/* Floating quick-user menu */}
-                  {showQuickUsers && (
-                    <div className="absolute bottom-[calc(100%+10px)] left-0 right-0 z-50 max-h-[min(360px,55dvh)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/20">
-                      <div className="mb-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">
-                            Select test account
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Credentials will be filled automatically.
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowQuickUsers(false)}
-                          className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100"
-                        >
-                          Close
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {quickUsers.map(([label, email, password]) => {
-                          const isSelected = form.email === email;
-
-                          return (
-                            <button
-                              key={email}
-                              type="button"
-                              onClick={() =>
-                                selectQuickUser(email, password)
-                              }
-                              className={`rounded-xl border px-3 py-2.5 text-left transition-all ${
-                                isSelected
-                                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                                  : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span
-                                  className={`text-xs font-bold ${
-                                    isSelected
-                                      ? 'text-blue-700'
-                                      : 'text-slate-700'
-                                  }`}
-                                >
-                                  {label}
-                                </span>
-
-                                {isSelected && (
-                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white">
-                                    <CheckIcon />
-                                  </span>
-                                )}
-                              </div>
-
-                              <span className="mt-1 block truncate text-[10px] text-slate-400">
-                                {email}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowQuickUsers((current) => !current)
-                    }
-                    aria-expanded={showQuickUsers}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-left transition hover:border-blue-200 hover:bg-blue-50/60"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        Quick role login
-                      </p>
-
-                      <p className="text-xs text-slate-500">
-                        Select a test account
-                      </p>
-                    </div>
-
-                    <ChevronIcon open={showQuickUsers} />
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer */}

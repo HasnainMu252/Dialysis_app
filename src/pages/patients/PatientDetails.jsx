@@ -171,7 +171,6 @@ const toEditable = (patient, insuranceForm) => ({
     maritalStatus: patient?.registration?.maritalStatus || '',
     spouseSsn: patient?.registration?.spouseSsn || '',
     religion: patient?.registration?.religion || '',
-    secondaryPayerAddress: patient?.registration?.secondaryPayerAddress || '',
     patientSignature: patient?.registration?.patientSignature || '',
     patientSignatureDate: dateInput(patient?.registration?.patientSignatureDate),
     policyHolderSignature: patient?.registration?.policyHolderSignature || '',
@@ -185,7 +184,6 @@ const toEditable = (patient, insuranceForm) => ({
     payerName: patient?.insurance?.payerName || '',
     policyNumber: patient?.insurance?.policyNumber || '',
     groupNumber: patient?.insurance?.groupNumber || '',
-    memberId: patient?.insurance?.memberId || '',
     planType: patient?.insurance?.planType || '',
     coverageStatus: patient?.insurance?.coverageStatus || 'not_submitted',
     effectiveDate: dateInput(patient?.insurance?.effectiveDate),
@@ -1170,7 +1168,6 @@ export default function PatientDetails() {
                   <TextField label="Medical Record Number" value={form.registration.medicalRecordNumber} onChange={(v) => setNested('registration', 'medicalRecordNumber', v)} />
                   <TextField label="Marital Status" value={form.registration.maritalStatus} onChange={(v) => setNested('registration', 'maritalStatus', v)} />
                   <TextField label="Religion" value={form.registration.religion} onChange={(v) => setNested('registration', 'religion', v)} />
-                  <TextAreaField label="Secondary Payer Address" value={form.registration.secondaryPayerAddress} onChange={(v) => setNested('registration', 'secondaryPayerAddress', v)} />
                 </div>
               </section>
 
@@ -1182,7 +1179,6 @@ export default function PatientDetails() {
                   <TextField label="Payer Name" value={form.insurance.payerName} onChange={(v) => setNested('insurance', 'payerName', v)} />
                   <TextField label="Policy Number" value={form.insurance.policyNumber} onChange={(v) => setNested('insurance', 'policyNumber', v)} />
                   <TextField label="Group Number" value={form.insurance.groupNumber} onChange={(v) => setNested('insurance', 'groupNumber', v)} />
-                  <TextField label="Member ID" value={form.insurance.memberId} onChange={(v) => setNested('insurance', 'memberId', v)} />
                   <TextField label="Plan Type" value={form.insurance.planType} onChange={(v) => setNested('insurance', 'planType', v)} />
                   <SelectField label="Coverage Status" value={form.insurance.coverageStatus} onChange={(v) => setNested('insurance', 'coverageStatus', v)} options={['not_submitted', 'submitted', 'approved', 'rejected', 'expired']} />
                   <TextField label="Effective Date" type="date" value={form.insurance.effectiveDate} onChange={(v) => setNested('insurance', 'effectiveDate', v)} />

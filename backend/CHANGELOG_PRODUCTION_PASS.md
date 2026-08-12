@@ -1049,3 +1049,39 @@ existed in PatientList / patientApi.)
   the nurse.
 
 Backend `node --check` x 91, frontend JSX clean. No new dependencies.
+
+---
+
+## Revision 38 — Patient registration field cleanup (client request)
+
+- **Removed "Secondary Payer Address"** from the patient create form, the patient
+  edit form and the form preview.
+- **Removed the duplicate "Member ID"** from the "Quick Insurance / Payer" block
+  (create + edit forms and preview). Member ID is now entered once, in the
+  detailed Primary Insurance section. The patient record's quick `insurance.memberId`
+  is derived from that Primary Insurance entry on save, so lists/search that read
+  it still work.
+- **No double typing:** editing Provider Name, Payer Name, Policy Number, Group
+  Number or Plan Type in the Quick Insurance block now mirrors the value into the
+  detailed Primary Insurance section — but only when that field is still empty
+  there, so it never overwrites something already entered.
+
+Backend fields remain in the schema (no migration needed); they are simply no
+longer collected in the UI. Frontend JSX clean, backend node --check passing.
+No new dependencies.
+
+---
+
+## Revision 39 — Remove demo accounts from the frontend
+
+- Removed the demo / quick-login system from the login page: the `quickUsers`
+  array of test credentials (admin@test.com, nurse@test.com, etc.), the
+  "Quick role login / Select test account" dropdown UI, the `selectQuickUser`
+  handler, its show/ref state and the click-outside effect.
+- The email and password fields no longer come pre-filled with
+  admin@test.com / 12345678 — the form now starts empty.
+- Removed the now-unused ChevronIcon helper. The normal login form (email,
+  password, show/hide, MFA, submit) is unchanged.
+
+Frontend JSX clean; no demo remnants remain (verified). No backend or dependency
+changes.
