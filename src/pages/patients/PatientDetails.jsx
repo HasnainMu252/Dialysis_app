@@ -31,7 +31,7 @@ import DialysisPrescriptionForm from '../../components/common/DialysisPrescripti
 import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
 import HomeMedQuickAdd from '../../components/common/HomeMedQuickAdd';
 import MedicationActivity from '../../components/common/MedicationActivity';
-import { API_BASE_URL } from '../../constants';
+import { API_BASE_URL, SHIFTS, shiftLabel } from '../../constants';
 
 import {
   TextField,
@@ -196,6 +196,7 @@ const toEditable = (patient, insuranceForm) => ({
   assignedSocialWorker:
     patient?.assignedSocialWorker?._id || patient?.assignedSocialWorker || '',
   status: patient?.status || 'active',
+  shift: patient?.shift ? String(patient.shift) : '',
 
   insuranceForm: insuranceForm?._id
     ? {
@@ -693,6 +694,7 @@ export default function PatientDetails() {
         lastName: form.lastName,
         dob: form.dob || undefined,
         gender: form.gender,
+        shift: form.shift === '' ? null : Number(form.shift),
         phone: form.phone,
         email: form.email,
         address: form.address,
@@ -844,7 +846,7 @@ export default function PatientDetails() {
     <div className="space-y-5">
       <PageHeader
         title={personName(patient)}
-        subtitle={`${patient.mrn} • ${patient.phone || 'No phone'}`}
+        subtitle={`${patient.mrn} • ${patient.phone || 'No phone'}${patient.shift ? ` • ${shiftLabel(patient.shift)}` : ''}`}
         action={
           <div className="flex flex-wrap gap-2">
             {['admin', 'front_desk'].includes(user?.role) && (
@@ -908,23 +910,36 @@ export default function PatientDetails() {
           <p className="text-xs text-slate-500">Claims</p>
           <p className="text-2xl font-bold">{claims.length}</p>
         </div>
+
+        <div className="card p-4">
+          <p className="text-xs text-slate-500">Dialysis Shift</p>
+          <p className="text-lg font-bold">{patient.shift ? shiftLabel(patient.shift) : 'Not assigned'}</p>
+        </div>
       </div>
 
-      <div className="card flex flex-wrap gap-2 p-3">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={tab === t.key ? 'btn-primary' : 'btn-light'}
-            onClick={() => {
-              setTab(t.key);
-              setPreviewMode(false);
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <aside className="card shrink-0 p-2 lg:sticky lg:top-4 lg:w-60">
+          <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-left text-sm font-semibold transition ${
+                  tab === t.key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                onClick={() => {
+                  setTab(t.key);
+                  setPreviewMode(false);
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
+        <div className="min-w-0 flex-1 space-y-5">
       {tab === 'overview' && (
         <PatientBioPanel patient={patient} claims={claims} />
       )}
@@ -1093,6 +1108,7 @@ export default function PatientDetails() {
                   <TextField label="Last Name" value={form.lastName} onChange={(v) => setValue('lastName', v)} />
                   <TextField label="DOB" type="date" value={form.dob} onChange={(v) => setValue('dob', v)} />
                   <SelectField label="Gender" value={form.gender} onChange={(v) => setValue('gender', v)} options={['male', 'female', 'other']} />
+                  <SelectField label="Dialysis Shift" value={form.shift || ''} onChange={(v) => setValue('shift', v)} options={['', '1', '2', '3']} labels={{ '': 'Not assigned', '1': '1st Shift (05:00 - 08:00)', '2': '2nd Shift (09:00 - 12:00)', '3': '3rd Shift (12:30 - 16:00)' }} />
                   <TextField label="Phone" value={form.phone} onChange={(v) => setValue('phone', v)} />
                   <TextField label="Email" type="email" value={form.email} onChange={(v) => setValue('email', v)} />
                   <TextField label="Address" value={form.address} onChange={(v) => setValue('address', v)} />
@@ -1667,6 +1683,8 @@ export default function PatientDetails() {
           {!claims.length && <EmptyState message="No claims yet" />}
         </section>
       )}
+        </div>
+      </div>
 
       {viewRound && <RoundDetailModal round={viewRound} onClose={() => setViewRound(null)} />}
     </div>

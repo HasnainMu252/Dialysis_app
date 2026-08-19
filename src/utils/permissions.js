@@ -122,7 +122,12 @@ const READ_ONLY_TABS_BY_ROLE = {
 };
 
 export const patientTabsForRole = (role) => {
-  const keys = TABS_BY_ROLE[role] || ['overview'];
+  let keys = TABS_BY_ROLE[role] || ['overview'];
+  // Nurses and technicians don't manage CQI comments or the insurance form,
+  // so hide those tabs from the patient detail view for them.
+  if (role === ROLES.NURSE || role === ROLES.TECHNICIAN) {
+    keys = keys.filter((k) => k !== 'cqi' && k !== 'cqi comments' && k !== 'insurance form');
+  }
   return keys.map((key) => ({ key, label: PATIENT_TAB_LABELS[key] || key }));
 };
 

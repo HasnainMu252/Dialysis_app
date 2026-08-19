@@ -27,7 +27,7 @@ import {
 } from '../../api/homeMedicationApi';
 import { chairClearanceApi } from '../../api/chairClearanceApi';
 
-import { SHIFTS, shiftIdFromTime } from '../../constants';
+import { SHIFTS, shiftIdFromTime, shiftLabel } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import {
   canManageHomeMedication,
@@ -39,6 +39,8 @@ import { personName } from '../../utils/format';
 import NoteAuthor from '../../components/common/NoteAuthor';
 import MedicationCard from '../../components/workflow/MedicationCard';
 import HomeMedicationCard from '../../components/workflow/HomeMedicationCard';
+import WorkflowActionModal from '../../components/workflow/WorkflowActionModal';
+import { Pill, FileText, ClipboardList, Home as HomeIcon } from 'lucide-react';
 import SessionNotesCard from '../../components/workflow/SessionNotesCard';
 import NurseReviewCard from '../../components/workflow/NurseReviewCard';
 import LabPanel from '../../components/common/LabPanel';
@@ -238,6 +240,8 @@ export default function TreatmentWorkflow() {
   const [shiftFilter, setShiftFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Which treatment-flow action popup is open: 'meds' | 'labs' | 'notes' | 'home' | null
+  const [actionModal, setActionModal] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -462,6 +466,7 @@ export default function TreatmentWorkflow() {
       );
 
       toast.success(`Recorded ${valid.length} medication(s)`);
+      setActionModal(null);
       setMeds([{ ...BLANK_MEDICATION }]);
       await reloadSessionMeds(selected._id);
     } catch (error) {
@@ -547,6 +552,7 @@ export default function TreatmentWorkflow() {
       });
 
       toast.success('Home medication added');
+      setActionModal(null);
       setHomeMedForm({ ...BLANK_HOME_MEDICATION });
       await loadHomeMeds(patientRef);
     } catch (error) {
@@ -625,6 +631,7 @@ export default function TreatmentWorkflow() {
       setSessionNotes(response.data?.data || []);
       setNoteForm({ ...BLANK_NOTE });
       toast.success('Note added');
+      setActionModal(null);
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -1343,6 +1350,16 @@ export default function TreatmentWorkflow() {
                     </div>
                     <div>
                       <span className="block font-semibold text-slate-400">
+                        Patient's Shift
+                      </span>
+                      <b className="mt-1 block">
+                        {selected.patient?.shift
+                          ? shiftLabel(selected.patient.shift)
+                          : 'Not assigned'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
                         Time
                       </span>
                       <b className="mt-1 block">
@@ -1793,7 +1810,61 @@ export default function TreatmentWorkflow() {
                     </section>
                   </div>
 
-                  <MedicationCard
+{/* Treatment actions: buttons open focused popups (simpler view) */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {allowMeds && (
+                      <button
+                        type="button"
+                        onClick={() => setActionModal('meds')}
+                        className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 hover:shadow-md"
+                      >
+                        <Pill size={22} />
+                        <span className="text-sm">Medication Administration</span>
+                        <span className="text-xs font-semibold text-slate-400">{sessionMeds.length} recorded</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setActionModal('labs')}
+                      className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-300 hover:text-purple-700 hover:shadow-md"
+                    >
+                      <FileText size={22} />
+                      <span className="text-sm">Laboratory Reports</span>
+                    </button>
+
+                    {allowNote && (
+                      <button
+                        type="button"
+                        onClick={() => setActionModal('notes')}
+                        className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:text-emerald-700 hover:shadow-md"
+                      >
+                        <ClipboardList size={22} />
+                        <span className="text-sm">Session Notes / Comments</span>
+                        <span className="text-xs font-semibold text-slate-400">{sessionNotes.length} note(s)</span>
+                      </button>
+                    )}
+
+                    {allowHomeMed && (
+                      <button
+                        type="button"
+                        onClick={() => setActionModal('home')}
+                        className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:text-amber-700 hover:shadow-md"
+                      >
+                        <HomeIcon size={22} />
+                        <span className="text-sm">Home Medications</span>
+                        <span className="text-xs font-semibold text-slate-400">{homeMeds.filter((m) => m.status === 'active').length} active</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <WorkflowActionModal
+                    open={actionModal === 'meds'}
+                    title="Medication Administration"
+                    icon={Pill}
+                    onClose={() => setActionModal(null)}
+                  >
+                    <MedicationCard
                     allowMeds={allowMeds}
                     quickMeds={QUICK_MEDS}
                     units={COMMON_UNITS}
@@ -1808,15 +1879,26 @@ export default function TreatmentWorkflow() {
                     onDelete={deleteSessionMed}
                     onCancel={cancelSessionMed}
                   />
+                  </WorkflowActionModal>
 
-                  <section className="card p-5">
+                  <WorkflowActionModal
+                    open={actionModal === 'labs'}
+                    title="Laboratory Reports"
+                    icon={FileText}
+                    onClose={() => setActionModal(null)}
+                  >
                     <LabPanel
                       patientId={selected?.patient?._id || selected?.patient}
                       session={selected?._id}
                     />
-                  </section>
+                  </WorkflowActionModal>
 
-                  {allowNote && (
+                  <WorkflowActionModal
+                    open={actionModal === 'notes'}
+                    title="Session Notes / Comments"
+                    icon={ClipboardList}
+                    onClose={() => setActionModal(null)}
+                  >
                     <SessionNotesCard
                       accessTypes={accessTypesForRole(user?.role)}
                       noteForm={noteForm}
@@ -1828,10 +1910,15 @@ export default function TreatmentWorkflow() {
                       patientId={selected?.patient?._id || selected?.patient}
                       sessionId={selected?._id}
                     />
-                  )}
+                  </WorkflowActionModal>
 
-                  {allowHomeMed && (
-  <section className="card p-5">
+                  <WorkflowActionModal
+                    open={actionModal === 'home'}
+                    title="Home Medications"
+                    icon={HomeIcon}
+                    onClose={() => setActionModal(null)}
+                  >
+                    <section className="card p-5">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h3 className="font-extrabold text-slate-900">
@@ -1998,7 +2085,7 @@ export default function TreatmentWorkflow() {
       onDelete={deleteHomeMedInWorkflow}
     />
   </section>
-)}
+                  </WorkflowActionModal>
 
                  
 

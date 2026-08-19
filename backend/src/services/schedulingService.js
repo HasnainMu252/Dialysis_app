@@ -62,6 +62,12 @@ export const assertScheduleAvailable = async ({
     throw new ApiError(400, 'startTime must be earlier than endTime.');
   }
 
+  // Block booking a NEW schedule in the past (skip when editing an existing one).
+  // A small grace window (2 min) avoids rejecting a booking made right at the start.
+  if (!excludeScheduleId && startAt.getTime() < Date.now() - 2 * 60 * 1000) {
+    throw new ApiError(400, 'Cannot book a schedule in the past. Choose a future date and time.');
+  }
+
   const idFilter = excludeScheduleId ? { _id: { $ne: excludeScheduleId } } : {};
 
   const requestBufferMs = Number(bufferMinutes ?? DEFAULT_BUFFER_MINUTES) * 60 * 1000;

@@ -1085,3 +1085,46 @@ No new dependencies.
 
 Frontend JSX clean; no demo remnants remain (verified). No backend or dependency
 changes.
+
+---
+
+## Revision 40 — Patient shift, sidebar patient view, treatment-flow action popups, past-booking block
+
+### Patient shift (synced with treatment-flow shift logic)
+- New **shift** field on the patient (1 = 05:00-08:00, 2 = 09:00-12:00,
+  3 = 12:30-16:00), selectable by everyone on the create and edit forms.
+- Shown when a patient is opened: in the header subtitle, an Overview stat card,
+  and as a chip on each patient-list row.
+- The Treatment Workflow's Schedule Detail now shows the patient's assigned shift
+  alongside the schedule, so staff recognise it at a glance. The workflow shift
+  filter continues to use the schedule shift (derived from start time when older).
+
+### Patient list — filter by shift
+- Segmented **All / 1st / 2nd / 3rd** filter on the patient list, backed by a new
+  `?shift=` query param on `GET /patients`. Shift is visible to all roles.
+
+### Patient detail view — sidebar navigation
+- The patient detail tab bar changed from a horizontal top bar to a **vertical
+  side menu** (Overview, Full Profile, Medical History, ...). Patient detail view
+  only; the rest of the app navigation is unchanged.
+
+### CQI + Insurance Form hidden for nurse/technician
+- The CQI, CQI comments and Insurance Form tabs are removed from the patient
+  detail view for the nurse and technician roles.
+
+### Treatment flow — action popups (simpler view)
+- Home Medications, Session Notes / Comments, Laboratory Reports and Medication
+  Administration are now **buttons** in a compact grid (each showing a count),
+  shown to the roles with treatment-flow access. Clicking opens a focused
+  **popup** to add/submit; a successful submit closes the popup. New
+  `WorkflowActionModal` wrapper.
+
+### Block past-dated schedule bookings
+- Creating a schedule with a start time in the past is now rejected
+  (400, "Cannot book a schedule in the past."), with a 2-minute grace window.
+  Editing an existing schedule is unaffected. Enforced inside
+  `assertScheduleAvailable`, so all create paths (and the station/bed availability
+  sync) are covered. Verified in-container.
+
+Syntax-validated (backend node --check x 91, frontend JSX) and the patient shift
+enum + past-booking block verified in-container. No new dependencies.

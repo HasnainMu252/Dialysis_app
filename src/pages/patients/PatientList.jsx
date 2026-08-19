@@ -6,6 +6,7 @@ import { patientApi } from '../../api/patientApi';
 import { useAuth } from '../../context/AuthContext';
 import { canEditPatient } from '../../utils/permissions';
 import { personName } from '../../utils/format';
+import { shiftLabel } from '../../constants';
 
 import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
@@ -375,6 +376,7 @@ export default function PatientList() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [shiftFilter, setShiftFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState({});
   const [uploading, setUploading] = useState(false);
@@ -409,13 +411,10 @@ export default function PatientList() {
     try {
       const trimmedSearch = searchValue.trim();
 
-      const response = await patientApi.list(
-        trimmedSearch
-          ? {
-              search: trimmedSearch,
-            }
-          : {}
-      );
+      const params = {};
+      if (trimmedSearch) params.search = trimmedSearch;
+      if (shiftFilter) params.shift = shiftFilter;
+      const response = await patientApi.list(params);
 
       const patients = response.data?.data || [];
 
@@ -441,6 +440,17 @@ export default function PatientList() {
   useEffect(() => {
     load('');
   }, []);
+
+  // Re-fetch when the shift filter changes (skip the very first mount).
+  const didMountShift = useRef(false);
+  useEffect(() => {
+    if (!didMountShift.current) {
+      didMountShift.current = true;
+      return;
+    }
+    load(search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shiftFilter]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -813,6 +823,29 @@ export default function PatientList() {
             )}
           </button>
 
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {[
+              ['', 'All'],
+              ['1', '1st'],
+              ['2', '2nd'],
+              ['3', '3rd'],
+            ].map(([val, lbl]) => (
+              <button
+                key={val || 'all'}
+                type="button"
+                onClick={() => setShiftFilter(val)}
+                title={val ? `Shift ${lbl}` : 'All shifts'}
+                className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                  shiftFilter === val
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white'
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
           {allowExport && (
             <button
               type="button"
@@ -1066,6 +1099,11 @@ export default function PatientList() {
                           <div className="min-w-0">
                             <p className="truncate font-bold text-slate-900">
                               {personName(patient)}
+                              {patient.shift ? (
+                                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                  {shiftLabel(patient.shift)}
+                                </span>
+                              ) : null}
                             </p>
 
                             <p className="mt-0.5 truncate text-xs text-slate-400">

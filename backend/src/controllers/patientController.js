@@ -33,6 +33,14 @@ const normalizePatientBody = (body) => {
   if (payload.email) payload.email = payload.email.trim().toLowerCase();
   if (payload.address) payload.address = payload.address.trim();
 
+  // Assigned treatment shift (1/2/3). Empty string -> null.
+  if (payload.shift === '' || payload.shift === undefined || payload.shift === null) {
+    payload.shift = null;
+  } else {
+    const n = Number(payload.shift);
+    payload.shift = [1, 2, 3].includes(n) ? n : null;
+  }
+
   if (payload.insurance?.careCoordinationFlags) {
     payload.insurance.careCoordinationFlags = Array.isArray(payload.insurance.careCoordinationFlags)
       ? payload.insurance.careCoordinationFlags
@@ -108,6 +116,11 @@ export const listPatients = asyncHandler(async (req, res) => {
         ],
       }
     : {};
+
+  // Filter by assigned shift (1/2/3) when provided.
+  if (req.query.shift && [1, 2, 3].includes(Number(req.query.shift))) {
+    q.shift = Number(req.query.shift);
+  }
 
   const [data, total] = await Promise.all([
     Patient.find(q).select(visiblePatientFields(req.user.role)).sort('-createdAt').skip(skip).limit(limit).lean({ virtuals: true }),

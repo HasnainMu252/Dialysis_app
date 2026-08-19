@@ -155,6 +155,18 @@ const patientSchema = new mongoose.Schema(
       currentPatient: Boolean,
     },
 
+    /**
+     * The patient's assigned treatment shift (1 | 2 | 3).
+     * 1 = 05:00-08:00, 2 = 09:00-12:00, 3 = 12:30-16:00.
+     * Their schedules default to this shift so staff can recognise it easily.
+     */
+    shift: {
+      type: Number,
+      enum: [1, 2, 3, null],
+      default: null,
+      index: true,
+    },
+
     homeFacility: {
       facilityName: String,
       facilityPhone: String,

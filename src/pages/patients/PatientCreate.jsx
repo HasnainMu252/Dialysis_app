@@ -117,6 +117,7 @@ const initialForm = {
 
   assignedSocialWorker: '',
   status: 'active',
+  shift: '',
 };
 
 const STEPS = [
@@ -353,6 +354,7 @@ export default function PatientCreate() {
 
         assignedSocialWorker: form.assignedSocialWorker || undefined,
         status: form.status,
+        shift: form.shift === '' ? null : Number(form.shift),
       };
 
       const patientRes = await patientApi.create(payload);
@@ -486,6 +488,18 @@ export default function PatientCreate() {
               value={form.gender}
               onChange={(v) => setValue('gender', v)}
               options={['male', 'female', 'other']}
+            />
+            <SelectField
+              label="Dialysis Shift"
+              value={form.shift ? String(form.shift) : ''}
+              onChange={(v) => setValue('shift', v)}
+              options={['', '1', '2', '3']}
+              labels={{
+                '': 'Not assigned',
+                '1': '1st Shift (05:00 - 08:00)',
+                '2': '2nd Shift (09:00 - 12:00)',
+                '3': '3rd Shift (12:30 - 16:00)',
+              }}
             />
             <TextField
               label="Phone *"
