@@ -38,10 +38,16 @@ export const listChairs = asyncHandler(async (req, res) => {
   // Auto-release chairs whose cleaning/buffer window has elapsed. This is what
   // makes the post-dialysis "cleaning" state time-boxed by bufferMinutes instead
   // of sticking until a manual clearance.
+  const toFree = await Chair.find({ status: 'cleaning', cleaningUntil: { $ne: null, $lte: now } })
+    .select('code chairNumber').lean();
   await Chair.updateMany(
     { status: 'cleaning', cleaningUntil: { $ne: null, $lte: now } },
     { $set: { status: 'available', lastCleanedAt: now, cleaningUntil: null } }
   );
+  // Notify (once each) that these stations are free again.
+  for (const c of toFree) {
+    notifyStationStatus({ stationCode: c.code || c.chairNumber || 'station', status: 'available' });
+  }
   // Also release finished maintenance windows for consistency.
   await Chair.updateMany(
     { status: 'maintenance', maintenanceUntil: { $ne: null, $lte: now } },

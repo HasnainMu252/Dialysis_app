@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import { notifyStationStatus } from '../services/notificationService.js';
 import DialysisSession from '../models/DialysisSession.js';
 import QueueEntry from '../models/QueueEntry.js';
 import Chair from '../models/Chair.js';
@@ -17,6 +18,10 @@ export const listSessions = asyncHandler(async (req, res) => {
   let data = await DialysisSession.find(filter)
     .populate('patient chair schedule checkedInBy startedBy completedBy')
     .sort('-createdAt');
+
+  // Skip orphaned sessions whose patient no longer exists (deleted patient).
+  // These would otherwise render as "Unknown patient" in the treatment flow.
+  data = data.filter((s) => s.patient);
 
   // App-wide schedule expiry: a session that is still 'scheduled' but whose
   // schedule end time has passed (patient never checked in) is treated as
@@ -264,10 +269,15 @@ export const completeSession = asyncHandler(async (req, res) => {
   // 'available' once the buffer (schedule.bufferMinutes, default 30) elapses —
   // enforced lazily on the next chair listing (see listChairs).
   const bufferMin = Number(session.schedule?.bufferMinutes) || 30;
-  await Chair.findByIdAndUpdate(session.chair, {
+  const cleaningChair = await Chair.findByIdAndUpdate(session.chair, {
     status: 'cleaning',
     currentSession: null,
     cleaningUntil: new Date(Date.now() + bufferMin * 60 * 1000),
+  });
+  notifyStationStatus({
+    stationCode: cleaningChair?.code || cleaningChair?.chairNumber || 'station',
+    status: 'cleaning',
+    patientName: session.patient?.firstName ? `${session.patient.firstName} ${session.patient.lastName || ''}`.trim() : undefined,
   });
 
   await QueueEntry.findOneAndUpdate(
@@ -420,10 +430,14 @@ export const finalizeSession = asyncHandler(async (req, res) => {
 
   // Station enters its cleaning/buffer window only once the nurse has closed.
   const bufferMin = Number(session.schedule?.bufferMinutes) || 30;
-  await Chair.findByIdAndUpdate(session.chair, {
+  const finalizedChair = await Chair.findByIdAndUpdate(session.chair, {
     status: 'cleaning',
     currentSession: null,
     cleaningUntil: new Date(Date.now() + bufferMin * 60 * 1000),
+  });
+  notifyStationStatus({
+    stationCode: finalizedChair?.code || finalizedChair?.chairNumber || 'station',
+    status: 'cleaning',
   });
 
   await QueueEntry.findOneAndUpdate(

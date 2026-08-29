@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 import { patientApi } from '../../api/patientApi';
 import { useAuth } from '../../context/AuthContext';
 import { canEditPatient } from '../../utils/permissions';
 import { personName } from '../../utils/format';
-import { shiftLabel } from '../../constants';
+import { shiftLabel, dayPatternShort } from '../../constants';
 
 import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
@@ -376,7 +376,9 @@ export default function PatientList() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
-  const [shiftFilter, setShiftFilter] = useState('');
+  const [searchParams] = useSearchParams();
+  const [shiftFilter, setShiftFilter] = useState(searchParams.get('shift') || '');
+  const [dayFilter, setDayFilter] = useState(searchParams.get('dayPattern') || '');
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState({});
   const [uploading, setUploading] = useState(false);
@@ -414,6 +416,7 @@ export default function PatientList() {
       const params = {};
       if (trimmedSearch) params.search = trimmedSearch;
       if (shiftFilter) params.shift = shiftFilter;
+      if (dayFilter) params.dayPattern = dayFilter;
       const response = await patientApi.list(params);
 
       const patients = response.data?.data || [];
@@ -450,7 +453,7 @@ export default function PatientList() {
     }
     load(search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shiftFilter]);
+  }, [shiftFilter, dayFilter]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -576,6 +579,20 @@ export default function PatientList() {
     }
   };
 
+  const cleanupOrphans = async () => {
+    if (!window.confirm('Remove schedules and sessions left over from deleted patients?')) return;
+    setCleaningOrphans(true);
+    try {
+      const res = await patientApi.cleanupOrphans();
+      const d = res.data?.data || {};
+      toast.success(`Cleaned up ${d.sessions || 0} session(s) and ${d.schedules || 0} schedule(s)`);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Cleanup failed');
+    } finally {
+      setCleaningOrphans(false);
+    }
+  };
+
   const bulkDelete = async () => {
     if (!selectedPatients.length) {
       toast.error('Select patients first');
@@ -662,15 +679,27 @@ export default function PatientList() {
         title="Patients"
         subtitle="Manage registration, insurance, treatment history and patient records."
         action={
-          allowEdit ? (
-            <Link
-              to="/patients/new"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-700 to-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-xl"
-            >
-              <PlusIcon />
-              Add Patient
-            </Link>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {user?.role === 'admin' && (
+              <button
+                onClick={cleanupOrphans}
+                disabled={cleaningOrphans}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                title="Remove schedules/sessions left over from deleted patients"
+              >
+                {cleaningOrphans ? 'Cleaning...' : 'Clean up orphaned records'}
+              </button>
+            )}
+            {allowEdit ? (
+              <Link
+                to="/patients/new"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-700 to-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-xl"
+              >
+                <PlusIcon />
+                Add Patient
+              </Link>
+            ) : null}
+          </div>
         }
       />
 
@@ -838,6 +867,28 @@ export default function PatientList() {
                 className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
                   shiftFilter === val
                     ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white'
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {[
+              ['', 'All days'],
+              ['mwf', 'MWF'],
+              ['tts', 'TTS'],
+            ].map(([val, lbl]) => (
+              <button
+                key={val || 'alldays'}
+                type="button"
+                onClick={() => setDayFilter(val)}
+                title={val === 'mwf' ? 'Mon / Wed / Fri' : val === 'tts' ? 'Tue / Thu / Sat' : 'All days'}
+                className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                  dayFilter === val
+                    ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-600 hover:bg-white'
                 }`}
               >
@@ -1102,6 +1153,16 @@ export default function PatientList() {
                               {patient.shift ? (
                                 <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
                                   {shiftLabel(patient.shift)}
+                                </span>
+                              ) : null}
+                              {patient.dayPattern ? (
+                                <span className="ml-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                  {dayPatternShort(patient.dayPattern)}
+                                </span>
+                              ) : null}
+                              {patient.dayPattern && patient.shift && !(patient.recurring?.stoppedAt && patient.recurring?.active === false) ? (
+                                <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700" title="Recurring schedule active">
+                                  ↻ Auto
                                 </span>
                               ) : null}
                             </p>

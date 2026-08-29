@@ -85,6 +85,14 @@ export const SHIFTS = [
 
 export const shiftLabel = (id) => SHIFTS.find((s) => s.id === Number(id))?.label || '';
 
+export const DAY_PATTERNS = [
+  { id: 'mwf', label: 'Mon / Wed / Fri', short: 'MWF' },
+  { id: 'tts', label: 'Tue / Thu / Sat', short: 'TTS' },
+];
+
+export const dayPatternLabel = (id) => DAY_PATTERNS.find((d) => d.id === id)?.label || '';
+export const dayPatternShort = (id) => DAY_PATTERNS.find((d) => d.id === id)?.short || '';
+
 /** Resolve which shift a "HH:MM" start time belongs to (mirrors backend shiftIdFor). */
 export const shiftIdFromTime = (hhmm) => {
   if (!hhmm || typeof hhmm !== 'string') return null;

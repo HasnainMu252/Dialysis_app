@@ -19,6 +19,7 @@ import homeMedicationRoutes from './homeMedicationRoutes.js';
 import cqiCommentRoutes from './cqiCommentRoutes.js';
 import labRoutes from './labRoutes.js';
 import dialysisPrescriptionRoutes from './dialysisPrescriptionRoutes.js';
+import rosterRoutes from './rosterRoutes.js';
 const router = express.Router();
 
 router.use('/auth', authRoutes);
@@ -41,5 +42,6 @@ router.use('/home-medications', homeMedicationRoutes);
 router.use('/cqi-comments', cqiCommentRoutes);
 router.use('/labs', labRoutes);
 router.use('/dialysis-prescriptions', dialysisPrescriptionRoutes);
+router.use('/roster', rosterRoutes);
 
 export default router;

@@ -1,4 +1,8 @@
 import asyncHandler from 'express-async-handler';
+import Schedule from '../models/Schedule.js';
+import DialysisSession from '../models/DialysisSession.js';
+import { cascadeDeletePatientData } from '../services/patientCascadeService.js';
+import { generateRecurringForPatient } from '../services/recurringScheduleService.js';
 import mongoose from 'mongoose';
 import XLSX from 'xlsx';
 
@@ -39,6 +43,24 @@ const normalizePatientBody = (body) => {
   } else {
     const n = Number(payload.shift);
     payload.shift = [1, 2, 3].includes(n) ? n : null;
+  }
+
+  // Dialysis day pattern (mwf/tts). Empty -> null.
+  if (payload.dayPattern === '' || payload.dayPattern === undefined) {
+    payload.dayPattern = null;
+  } else if (payload.dayPattern !== null) {
+    const dp = String(payload.dayPattern).toLowerCase();
+    payload.dayPattern = ['mwf', 'tts'].includes(dp) ? dp : null;
+  }
+
+  // Recurring: accept a plain boolean (recurringActive) from the form and fold
+  // it into the recurring sub-object without clobbering generator bookkeeping.
+  if (payload.recurringActive !== undefined) {
+    payload.recurring = {
+      ...(payload.recurring || {}),
+      active: payload.recurringActive === true || payload.recurringActive === 'true',
+    };
+    delete payload.recurringActive;
   }
 
   if (payload.insurance?.careCoordinationFlags) {
@@ -91,6 +113,9 @@ export const createPatient = asyncHandler(async (req, res) => {
 
   const patient = await Patient.create(payload);
 
+  // Auto-build the recurring schedule whenever a pattern + shift are set.
+  try { await generateRecurringForPatient(patient, { bookedBy: req.user?._id }); } catch (e) { /* non-fatal */ }
+
   await writeAudit({ user: req.user, action: 'patient.create', entity: 'Patient', entityId: patient._id });
 
   return sendSuccess(res, { statusCode: 201, message: 'Patient created successfully', data: patient });
@@ -122,6 +147,11 @@ export const listPatients = asyncHandler(async (req, res) => {
     q.shift = Number(req.query.shift);
   }
 
+  // Filter by day pattern (mwf/tts) when provided.
+  if (req.query.dayPattern && ['mwf', 'tts'].includes(String(req.query.dayPattern).toLowerCase())) {
+    q.dayPattern = String(req.query.dayPattern).toLowerCase();
+  }
+
   const [data, total] = await Promise.all([
     Patient.find(q).select(visiblePatientFields(req.user.role)).sort('-createdAt').skip(skip).limit(limit).lean({ virtuals: true }),
     Patient.countDocuments(q),
@@ -150,6 +180,9 @@ export const updatePatient = asyncHandler(async (req, res) => {
   });
 
   if (!patient) throw new ApiError(404, 'Patient not found');
+
+  // Auto-build/refresh the recurring schedule (no-op when stopped or no pattern/shift).
+  try { await generateRecurringForPatient(patient._id, { bookedBy: req.user?._id }); } catch (e) { /* non-fatal */ }
 
   await writeAudit({ user: req.user, action: 'patient.update', entity: 'Patient', entityId: patient._id });
 
@@ -270,11 +303,21 @@ export const bulkDeletePatients = asyncHandler(async (req, res) => {
 
   if (!query.$or.length) throw new ApiError(400, 'Please provide valid patient ids or mrns');
 
+  // Collect the ids first so we can cascade-delete their related records.
+  const toDelete = await Patient.find(query).select('_id').lean();
+  const deleteIds = toDelete.map((p) => p._id);
+
   const result = await Patient.deleteMany(query);
+
+  // Remove related records for all deleted patients (schedules, sessions, etc.).
+  let removed = {};
+  if (deleteIds.length) {
+    removed = await cascadeDeletePatientData(deleteIds);
+  }
 
   await writeAudit({ user: req.user, action: 'patient.bulk_delete', entity: 'Patient', entityId: null });
 
-  return sendSuccess(res, { message: 'Patients deleted successfully', data: { deletedCount: result.deletedCount } });
+  return sendSuccess(res, { message: 'Patients deleted successfully', data: { deletedCount: result.deletedCount, removed } });
 });
 
 export const deletePatient = asyncHandler(async (req, res) => {
@@ -282,11 +325,15 @@ export const deletePatient = asyncHandler(async (req, res) => {
 
   if (!patient) throw new ApiError(404, 'Patient not found');
 
+  // Remove all related records (schedules, sessions, meds, labs, etc.) so nothing
+  // is left orphaned — otherwise deleted patients show as "Unknown" in the flow.
+  const removed = await cascadeDeletePatientData(patient._id);
+
   await writeAudit({ user: req.user, action: 'patient.delete', entity: 'Patient', entityId: patient._id });
 
   return sendSuccess(res, {
     message: 'Patient deleted successfully',
-    data: { id: patient._id, mrn: patient.mrn, name: `${patient.firstName} ${patient.lastName}` },
+    data: { id: patient._id, mrn: patient.mrn, name: `${patient.firstName} ${patient.lastName}`, removed },
   });
 });
 
@@ -387,4 +434,108 @@ export const exportPatients = asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="patients-export-${new Date().toISOString().slice(0, 10)}.xlsx"`);
   res.send(buffer);
+});
+
+/**
+ * POST /api/v1/patients/:idOrMrn/recurring/start   { chair? }
+ * Turns on recurring booking and generates the coming schedules.
+ */
+export const startRecurring = asyncHandler(async (req, res) => {
+  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  if (!patient) throw new ApiError(404, 'Patient not found');
+  if (!patient.dayPattern || ![1, 2, 3].includes(Number(patient.shift))) {
+    throw new ApiError(400, 'Set the patient\'s dialysis days (MWF/TTS) and shift before starting recurring schedules.');
+  }
+
+  patient.recurring = {
+    ...(patient.recurring || {}),
+    active: true,
+    chair: req.body?.chair || patient.recurring?.chair,
+    startedAt: new Date(),
+    startedByName: req.user?.name,
+    stoppedAt: undefined,
+    stoppedByName: undefined,
+  };
+  await patient.save();
+
+  let created = 0;
+  try { created = await generateRecurringForPatient(patient._id, { bookedBy: req.user?._id }); } catch (e) { /* non-fatal */ }
+
+  await writeAudit({ user: req.user, action: 'patient.recurring.start', entity: 'Patient', entityId: patient._id });
+  return sendSuccess(res, { message: `Recurring schedule started (${created} session(s) booked)`, data: { recurring: patient.recurring, created } });
+});
+
+/**
+ * POST /api/v1/patients/:idOrMrn/recurring/stop   { removeFuture? }
+ * Turns off recurring booking. When removeFuture is true, deletes this patient's
+ * future recurring schedules that haven't started yet.
+ */
+export const stopRecurring = asyncHandler(async (req, res) => {
+  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  patient.recurring = {
+    ...(patient.recurring || {}),
+    active: false,
+    stoppedAt: new Date(),
+    stoppedByName: req.user?.name,
+  };
+  await patient.save();
+
+  let removed = 0;
+  if (req.body?.removeFuture) {
+    const now = new Date();
+    const futureSchedules = await Schedule.find({
+      patient: patient._id,
+      recurring: true,
+      startAt: { $gt: now },
+      status: { $in: ['Scheduled', 'scheduled'] },
+    }).select('_id').lean();
+    const schedIds = futureSchedules.map((s) => s._id);
+
+    // Remove the matching not-yet-started sessions first, then the schedules.
+    await DialysisSession.deleteMany({
+      schedule: { $in: schedIds },
+      status: { $in: ['scheduled', 'Scheduled'] },
+    });
+    const del = await Schedule.deleteMany({ _id: { $in: schedIds } });
+    removed = del.deletedCount || 0;
+  }
+
+  await writeAudit({ user: req.user, action: 'patient.recurring.stop', entity: 'Patient', entityId: patient._id });
+  return sendSuccess(res, { message: `Recurring schedule stopped${removed ? ` (${removed} future session(s) removed)` : ''}`, data: { recurring: patient.recurring, removed } });
+});
+
+/**
+ * POST /api/v1/patients/cleanup-orphans  (admin)
+ * One-time cleanup: removes schedules and dialysis sessions whose patient no
+ * longer exists (left over from deletes before cascade delete was added).
+ */
+export const cleanupOrphans = asyncHandler(async (req, res) => {
+  const patientIds = await Patient.find().select('_id').lean();
+  const validIds = patientIds.map((p) => String(p._id));
+
+  const [sessions, schedules] = await Promise.all([
+    DialysisSession.find().select('_id patient').lean(),
+    Schedule.find().select('_id patient').lean(),
+  ]);
+
+  const orphanSessionIds = sessions
+    .filter((s) => !s.patient || !validIds.includes(String(s.patient)))
+    .map((s) => s._id);
+  const orphanScheduleIds = schedules
+    .filter((s) => !s.patient || !validIds.includes(String(s.patient)))
+    .map((s) => s._id);
+
+  const [delSessions, delSchedules] = await Promise.all([
+    orphanSessionIds.length ? DialysisSession.deleteMany({ _id: { $in: orphanSessionIds } }) : { deletedCount: 0 },
+    orphanScheduleIds.length ? Schedule.deleteMany({ _id: { $in: orphanScheduleIds } }) : { deletedCount: 0 },
+  ]);
+
+  await writeAudit({ user: req.user, action: 'patient.cleanup_orphans', entity: 'Patient', entityId: null });
+
+  return sendSuccess(res, {
+    message: 'Orphaned records cleaned up',
+    data: { sessions: delSessions.deletedCount || 0, schedules: delSchedules.deletedCount || 0 },
+  });
 });

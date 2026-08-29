@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
 import toast from 'react-hot-toast';
 import {
   Activity,
@@ -215,6 +216,8 @@ export default function TechnicianDashboard() {
               size={16}
               className={refreshing ? 'animate-spin' : ''}
             />
+
+      <TodayRosterBoxes />
             {refreshing ? 'Refreshing...' : 'Refresh Dashboard'}
           </button>
         }

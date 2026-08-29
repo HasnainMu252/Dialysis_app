@@ -7,6 +7,7 @@ import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
 import ScheduleCard from '../../components/common/ScheduleCard';
 import PatientBoard from '../../components/common/PatientBoard';
+import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
 import { Link } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { personName } from '../../utils/format';
@@ -245,6 +246,8 @@ export default function NurseDashboard() {
         title="Nurse Dashboard"
         subtitle="Patients, treatment flow, schedules, vitals, SOAP and session history."
       />
+
+      <TodayRosterBoxes />
 
       {/* Session workflow statistics */}
       <section className="space-y-3">

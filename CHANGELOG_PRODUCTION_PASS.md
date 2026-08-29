@@ -1128,3 +1128,217 @@ changes.
 
 Syntax-validated (backend node --check x 91, frontend JSX) and the patient shift
 enum + past-booking block verified in-container. No new dependencies.
+
+---
+
+## Revision 41 — Add seed script for known role accounts
+
+- Added `src/utils/seed.js` (run with `npm run seed`) that upserts one login
+  account per role (admin, front_desk, biller, insurance_person, nurse,
+  technician, social_worker, doctor, patient) with a known shared password.
+- Idempotent: re-running updates existing accounts (matched by email) and resets
+  the password, so you always get a working set. Passwords are hashed by the User
+  model's pre-save hook.
+- Defaults: emails `role@aegle.care`, password `Passw0rd!`. Override without
+  editing the file via `SEED_PASSWORD=... SEED_EMAIL_DOMAIN=... npm run seed`.
+  Uses `MONGO_URI` (matching the app config).
+
+No frontend or dependency changes. (The old hardcoded demo logins removed in
+Rev 39 stay removed; this provides real DB accounts instead.)
+
+---
+
+## Revision 42 — Dialysis day patterns (MWF/TTS), today-by-shift roster, extra 4th session
+
+### Patient day pattern
+- New **dayPattern** field on the patient (`mwf` = Mon/Wed/Fri, `tts` = Tue/Thu/Sat),
+  selectable by everyone on the create and edit forms, shown next to the shift
+  (with shift times: 1st 05:00-08:00, 2nd 09:00-12:00, 3rd 12:30-16:00).
+- Displayed on the patient view (Overview card) and as a chip on patient-list rows.
+
+### Patient list filters
+- Added an **MWF / TTS** day filter next to the existing shift filter. Both are
+  backed by query params (`?shift=`, `?dayPattern=`) and the list now reads them
+  from the URL, so the dashboard boxes can deep-link into a filtered list.
+
+### Today-by-shift roster + dashboard boxes
+- New endpoint `GET /roster/today` returns patients due today grouped by shift
+  (1/2/3). A patient is "due" when their dayPattern matches the weekday's pattern
+  (Mon/Wed/Fri -> mwf, Tue/Thu/Sat -> tts) OR they have an extra session today.
+- New **TodayRosterBoxes** on the Nurse, Technician and Doctor dashboards: three
+  shift boxes with today's live counts (click -> patient list filtered to that
+  shift) plus MWF / TTS quick-nav boxes.
+
+### Extra 4th session (one-off)
+- New **extraDialysisDays** on the patient + `POST /patients/:id/extra-session`.
+  A nurse/technician/doctor/admin can add a one-off extra session for today from
+  the patient header ("+ Extra Session Today", pick the shift). The patient then
+  appears in that shift's Today box for that day only, without changing their
+  recurring MWF/TTS pattern. Duplicate-per-day guarded.
+
+Roles: roster + extra-session actions are limited to admin/nurse/technician/doctor
+(front desk can read the roster). Syntax-validated (backend node --check x 94,
+frontend JSX) and the day-pattern enum, past logic and roster grouping verified
+in-container. No new dependencies.
+
+---
+
+## Revision 43 — Recurring dialysis schedules (auto-repeat until stopped); remove extra 4th-session
+
+### Recurring schedule generation
+- A patient with a dayPattern (MWF/TTS) + shift and **recurring active** now has
+  real **Schedule records auto-created** for the coming matching dates
+  (Mon/Wed/Fri or Tue/Thu/Sat at the assigned shift start/end times), so they
+  appear in the Schedules screen — not just the roster.
+- New `services/recurringScheduleService.js` fills a 28-day horizon, idempotent
+  (skips dates already scheduled for that patient+shift), picks the patient's
+  configured station or the first available chair, and records progress on
+  `patient.recurring.lastGeneratedDate`.
+- New daily cron (`jobs/recurringScheduleJob.js`, 01:00) tops up the horizon for
+  all active patients so the pattern repeats indefinitely until stopped.
+- Generation also runs immediately on patient create/update and on Start.
+
+### Start / Stop in both places
+- Patient model gains a `recurring` sub-object (active, chair, started/stopped
+  stamps, lastGeneratedDate) and Schedule gains a `recurring` flag.
+- New endpoints `POST /patients/:id/recurring/start` and `.../recurring/stop`
+  (stop optionally removes upcoming not-yet-started recurring sessions).
+- **Patient form:** a "Repeat this schedule automatically" checkbox on create;
+  a Recurring status card with Start/Stop on the patient detail.
+- **Schedule view:** recurring schedules show a "Recurring" banner with a
+  "Stop Recurring" button.
+
+### Removed the extra 4th-session feature
+- Removed `extraDialysisDays`, the `POST /patients/:id/extra-session` endpoint,
+  and the "Extra Session Today" button/modal. The roster is now driven purely by
+  each patient's recurring pattern + shift.
+
+NOTE: The end-to-end DB generation path could not be exercised in the build
+sandbox (no MongoDB binary available); the date math, schema validation and all
+guard paths were verified in-container. Please run `npm run seed`-style smoke test
+against your dev DB: set a patient to MWF + shift 1, Start recurring, and confirm
+the coming Mon/Wed/Fri appear in Schedules. Syntax-validated (backend node --check
+x 96, frontend JSX). No new dependencies.
+
+---
+
+## Revision 44 — Recurring auto-runs on pattern+shift; 30-day horizon; stop restricted
+
+### 404 on /recurring/start
+- The route was already present and correctly ordered in Rev 43 — a 404 there
+  means the running server is still the pre-Rev-43 build. Restart the backend
+  after deploying this zip. (Verified the route module loads and the controllers
+  export.)
+
+### Recurring now runs automatically
+- A patient with a **day pattern (MWF/TTS) + shift** now has their schedule
+  auto-built with NO separate "start" step. Generation runs on patient
+  create/update, on the daily cron, and can be resumed after a stop.
+- It only pauses when explicitly stopped (recurring.active=false + stoppedAt).
+- Horizon increased to **30 days**.
+- The daily sweep now selects every active patient with a pattern + shift that
+  hasn't been stopped.
+
+### UI
+- Removed the "Repeat this schedule automatically" checkbox from the create form
+  (it's automatic now); added a hint that the next 30 days will be booked when a
+  pattern + shift are chosen.
+- Patient-detail Recurring card shows **Active (auto)** / **Stopped** / **Not set**,
+  with a **Stop** button (or **Resume** when stopped).
+
+### Stop permissions
+- Start/resume and stop remain restricted to **admin, front_desk, nurse, doctor**
+  (unchanged from Rev 43; matches the client's list). Technicians cannot stop.
+
+Backend node --check x 96, frontend JSX clean. Auto-on/stop guard logic verified
+in-container. The live-DB generation path still needs a smoke test on your dev DB
+(no Mongo binary in the build sandbox). No new dependencies.
+
+---
+
+## Revision 45 — Recurring: create sessions (show in treatment flow), fix blank chair, full sync
+
+### Bug: recurring patients didn't appear in the treatment flow
+- The recurring generator created Schedule records but not the matching
+  DialysisSession, while the treatment flow lists sessions. So recurring-booked
+  patients never showed up and nurses/technicians couldn't start treatment.
+- Fixed: the generator now calls `createSession()` for each schedule it books
+  (same as a normal booking), so recurring patients appear in the treatment flow
+  and can be checked in / started on their day.
+- Backfill: for recurring schedules booked before this fix (schedule but no
+  session), the generator now creates the missing session on its next run, so
+  existing bookings become visible without manual work.
+
+### Bug: future booking showed a blank chair/station
+- `resolveChair` was fragile (queried non-existent capitalised statuses and could
+  fall through). Rewrote it: use the patient's assigned station, else pick a
+  STABLE chair per patient (hashed by id) so patients spread across stations and
+  the same patient always gets the same one. chairCode now always has a fallback.
+
+### Sync throughout the app
+- Stopping recurring with "remove future" now also deletes the matching
+  not-yet-started sessions (not just schedules), so the treatment flow, schedules
+  and roster stay consistent.
+- Recurring sessions flow through the normal session pipeline, so check-in, start,
+  nurse review and the today roster all recognise them.
+
+Backend node --check x 96, frontend JSX clean. Chair distribution + guard logic
+verified in-container. Live-DB generation still needs a smoke test on your dev DB.
+No new dependencies.
+
+---
+
+## Revision 46 — Notifications (roster + station) and recurring/station sync across the app
+
+(Adopted the user's uploaded build as base — it was identical to Rev 45, no UI
+changes to preserve.)
+
+### Notifications
+- New `services/notificationService.js` helper (`notifyRoles`) + two builders.
+- **Daily roster:** new morning cron (`jobs/dailyRosterJob.js`, 05:00) posts a
+  notification to nurses + technicians summarising today's patients per shift
+  (e.g. "10 patient(s) due today — Shift 1: 5, Shift 2: 3, Shift 3: 2"),
+  de-duplicated per day. Skips Sundays.
+- **Station status:** when a station enters cleaning (session complete / nurse
+  finalize) or is freed after its cleaning window (chair listing auto-release),
+  a notification goes to nurse + technician ("Station CH-03 needs cleaning" /
+  "Station CH-03 is free").
+- Added `daily_roster` and `station_status` to the Notification type enum.
+
+### Recurring + station sync across the app
+- Patient list rows now show a "↻ Auto" chip when recurring is active (added
+  `recurring` to the patient list field selection).
+- Schedule cards show a "↻ Recurring" badge; the schedule detail already showed
+  the station and a Stop Recurring control.
+- Treatment flow schedule-detail header shows a "↻ Recurring" badge; station was
+  already displayed there.
+
+Backend node --check x 98, frontend JSX clean. Notification message logic verified
+in-container. The live-DB paths (generation + notification writes) still need a
+smoke test on your dev DB. No new dependencies.
+
+---
+
+## Revision 47 — Cascade-delete patient data (fixes "Unknown" in treatment flow)
+
+### Bug: deleting a patient left orphaned schedules/sessions
+- deletePatient and bulkDeletePatients removed only the Patient document,
+  leaving schedules, dialysis sessions, meds, labs, CQI, prescriptions, billing,
+  insurance forms and notifications behind. Orphaned sessions then rendered as
+  "Unknown patient" in the treatment flow.
+
+### Fix
+- New `services/patientCascadeService.js` (`cascadeDeletePatientData`) deletes all
+  records tied to a patient across 11 collections. Verified every model uses the
+  `patient` field.
+- Wired into deletePatient (single) and bulkDeletePatients (collects ids first,
+  then cascades). Both report what was removed.
+- listSessions now skips sessions whose patient no longer exists, so any
+  pre-existing orphans immediately stop showing as "Unknown".
+- New admin endpoint `POST /patients/cleanup-orphans` + a "Clean up orphaned
+  records" button on the patient list (admin only) to purge leftovers from
+  deletes made before this fix.
+
+Backend node --check x 99, frontend JSX clean. Cascade filter + orphan detection
+verified in-container. Live-DB delete path needs a smoke test on your dev DB.
+No new dependencies.

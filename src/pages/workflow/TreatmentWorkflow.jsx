@@ -1336,6 +1336,11 @@ export default function TreatmentWorkflow() {
                 <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
                   <p className="mb-3 text-xs font-extrabold uppercase tracking-wide text-blue-800">
                     Schedule Detail
+                    {selected.schedule?.recurring ? (
+                      <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        ↻ Recurring
+                      </span>
+                    ) : null}
                   </p>
                   <div className="grid gap-3 text-xs text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
                     <div>

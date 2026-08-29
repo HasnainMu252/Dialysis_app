@@ -99,6 +99,13 @@ const scheduleSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // True when auto-created by the recurring dialysis-pattern generator.
+    recurring: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     bufferMinutes: {
       type: Number,
       default: 30,

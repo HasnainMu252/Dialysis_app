@@ -31,7 +31,7 @@ import DialysisPrescriptionForm from '../../components/common/DialysisPrescripti
 import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
 import HomeMedQuickAdd from '../../components/common/HomeMedQuickAdd';
 import MedicationActivity from '../../components/common/MedicationActivity';
-import { API_BASE_URL, SHIFTS, shiftLabel } from '../../constants';
+import { API_BASE_URL, SHIFTS, shiftLabel, dayPatternLabel } from '../../constants';
 
 import {
   TextField,
@@ -197,6 +197,7 @@ const toEditable = (patient, insuranceForm) => ({
     patient?.assignedSocialWorker?._id || patient?.assignedSocialWorker || '',
   status: patient?.status || 'active',
   shift: patient?.shift ? String(patient.shift) : '',
+  dayPattern: patient?.dayPattern || '',
 
   insuranceForm: insuranceForm?._id
     ? {
@@ -695,6 +696,7 @@ export default function PatientDetails() {
         dob: form.dob || undefined,
         gender: form.gender,
         shift: form.shift === '' ? null : Number(form.shift),
+        dayPattern: form.dayPattern || null,
         phone: form.phone,
         email: form.email,
         address: form.address,
@@ -833,6 +835,27 @@ export default function PatientDetails() {
     }
   };
 
+  const startRecurring = async () => {
+    try {
+      const res = await patientApi.recurringStart(patient._id);
+      toast.success(res.data?.message || 'Recurring schedule started');
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to start recurring schedule');
+    }
+  };
+
+  const stopRecurring = async () => {
+    const removeFuture = window.confirm('Stop repeating this schedule. Also remove upcoming (not-yet-started) sessions?');
+    try {
+      const res = await patientApi.recurringStop(patient._id, { removeFuture });
+      toast.success(res.data?.message || 'Recurring schedule stopped');
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to stop recurring schedule');
+    }
+  };
+
   if (loading) return <Loading message="Loading patient details..." />;
   if (!patient) return <EmptyState message="Patient not found" />;
 
@@ -914,6 +937,45 @@ export default function PatientDetails() {
         <div className="card p-4">
           <p className="text-xs text-slate-500">Dialysis Shift</p>
           <p className="text-lg font-bold">{patient.shift ? shiftLabel(patient.shift) : 'Not assigned'}</p>
+        </div>
+
+        <div className="card p-4">
+          <p className="text-xs text-slate-500">Dialysis Days</p>
+          <p className="text-lg font-bold">{patient.dayPattern ? dayPatternLabel(patient.dayPattern) : 'Not assigned'}</p>
+        </div>
+
+        <div className="card p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs text-slate-500">Recurring Schedule</p>
+              {(() => {
+                const hasPlan = patient.dayPattern && patient.shift;
+                const stopped = patient.recurring?.stoppedAt && patient.recurring?.active === false;
+                const isActive = hasPlan && !stopped;
+                return (
+                  <p className={`text-lg font-bold ${isActive ? 'text-emerald-600' : 'text-slate-500'}`}>
+                    {!hasPlan ? 'Not set' : isActive ? 'Active (auto)' : 'Stopped'}
+                  </p>
+                );
+              })()}
+            </div>
+            {['admin', 'front_desk', 'nurse', 'doctor'].includes(user?.role) && patient.dayPattern && patient.shift && (
+              patient.recurring?.stoppedAt && patient.recurring?.active === false ? (
+                <button onClick={startRecurring} className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-100">
+                  Resume
+                </button>
+              ) : (
+                <button onClick={stopRecurring} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100">
+                  Stop
+                </button>
+              )
+            )}
+          </div>
+          {!patient.dayPattern || !patient.shift ? (
+            <p className="mt-1 text-[11px] text-slate-400">Set dialysis days + shift to auto-build the next 30 days.</p>
+          ) : (
+            <p className="mt-1 text-[11px] text-slate-400">Next 30 days booked automatically for {patient.dayPattern === 'tts' ? 'Tue/Thu/Sat' : 'Mon/Wed/Fri'}.</p>
+          )}
         </div>
       </div>
 
@@ -1109,6 +1171,7 @@ export default function PatientDetails() {
                   <TextField label="DOB" type="date" value={form.dob} onChange={(v) => setValue('dob', v)} />
                   <SelectField label="Gender" value={form.gender} onChange={(v) => setValue('gender', v)} options={['male', 'female', 'other']} />
                   <SelectField label="Dialysis Shift" value={form.shift || ''} onChange={(v) => setValue('shift', v)} options={['', '1', '2', '3']} labels={{ '': 'Not assigned', '1': '1st Shift (05:00 - 08:00)', '2': '2nd Shift (09:00 - 12:00)', '3': '3rd Shift (12:30 - 16:00)' }} />
+                  <SelectField label="Dialysis Days" value={form.dayPattern || ''} onChange={(v) => setValue('dayPattern', v)} options={['', 'mwf', 'tts']} labels={{ '': 'Not assigned', mwf: 'Mon / Wed / Fri', tts: 'Tue / Thu / Sat' }} />
                   <TextField label="Phone" value={form.phone} onChange={(v) => setValue('phone', v)} />
                   <TextField label="Email" type="email" value={form.email} onChange={(v) => setValue('email', v)} />
                   <TextField label="Address" value={form.address} onChange={(v) => setValue('address', v)} />

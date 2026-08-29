@@ -2,6 +2,9 @@ import api from './axios';
 
 export const patientApi = {
   list: (params) => api.get('/patients', { params }),
+  cleanupOrphans: () => api.post('/patients/cleanup-orphans', {}),
+  recurringStart: (idOrMrn, body) => api.post(`/patients/${idOrMrn}/recurring/start`, body || {}),
+  recurringStop: (idOrMrn, body) => api.post(`/patients/${idOrMrn}/recurring/stop`, body || {}),
   create: (data) => api.post('/patients', data),
   get: (id) => api.get(`/patients/${id}`),
   update: (id, data) => api.patch(`/patients/${id}`, data),

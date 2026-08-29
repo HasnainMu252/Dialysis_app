@@ -53,6 +53,8 @@ const formatSchedule = (doc, extra = {}) => {
     code: s.code,
     sessionCode: resolvedSessionCode,
     shift: resolvedShift,
+    recurring: s.recurring || false,
+    patientId: s.patient?._id || s.patient,
     patientMrn: s.patientMrn,
     patientName,
     patientPhone: s.patient?.phone,

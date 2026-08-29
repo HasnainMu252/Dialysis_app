@@ -36,6 +36,11 @@ export default function ScheduleCard({ schedule, index, onClick }) {
               {schedule.sessionCode}
             </span>
           )}
+          {schedule.recurring && (
+            <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700" title="Recurring schedule">
+              ↻ Recurring
+            </span>
+          )}
           <StatusBadge status={schedule.expired ? 'expired' : schedule.status} />
         </div>
       </div>

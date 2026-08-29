@@ -12,6 +12,8 @@ const notificationSchema = new mongoose.Schema(
         'insurance_approval',
         'schedule_created',
         'schedule_updated',
+        'daily_roster',
+        'station_status',
         'general',
         'test',
       ],

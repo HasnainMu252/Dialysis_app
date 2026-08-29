@@ -76,7 +76,7 @@ export const PERMISSIONS = Object.freeze({
  */
 export const visiblePatientFields = (role) => {
   const common =
-    'mrn firstName lastName dob gender phone email address city state zip emergencyContact medicalHistory status shift sentToBillerAt createdAt updatedAt';
+    'mrn firstName lastName dob gender phone email address city state zip emergencyContact medicalHistory status shift dayPattern recurring sentToBillerAt createdAt updatedAt';
 
   const fullProfileRoles = [
     ROLES.ADMIN,
@@ -94,5 +94,5 @@ export const visiblePatientFields = (role) => {
     return common;
   }
 
-  return 'mrn firstName lastName dob gender phone email address status shift';
+  return 'mrn firstName lastName dob gender phone email address status shift dayPattern recurring';
 };

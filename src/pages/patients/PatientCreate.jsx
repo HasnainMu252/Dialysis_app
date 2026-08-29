@@ -118,6 +118,7 @@ const initialForm = {
   assignedSocialWorker: '',
   status: 'active',
   shift: '',
+  dayPattern: '',
 };
 
 const STEPS = [
@@ -355,6 +356,7 @@ export default function PatientCreate() {
         assignedSocialWorker: form.assignedSocialWorker || undefined,
         status: form.status,
         shift: form.shift === '' ? null : Number(form.shift),
+        dayPattern: form.dayPattern || null,
       };
 
       const patientRes = await patientApi.create(payload);
@@ -501,6 +503,22 @@ export default function PatientCreate() {
                 '3': '3rd Shift (12:30 - 16:00)',
               }}
             />
+            <SelectField
+              label="Dialysis Days"
+              value={form.dayPattern || ''}
+              onChange={(v) => setValue('dayPattern', v)}
+              options={['', 'mwf', 'tts']}
+              labels={{
+                '': 'Not assigned',
+                mwf: 'Mon / Wed / Fri',
+                tts: 'Tue / Thu / Sat',
+              }}
+            />
+            {form.dayPattern && form.shift ? (
+              <p className="text-xs text-emerald-600 sm:col-span-2">
+                The next 30 days of {form.dayPattern === 'tts' ? 'Tue/Thu/Sat' : 'Mon/Wed/Fri'} sessions will be booked automatically.
+              </p>
+            ) : null}
             <TextField
               label="Phone *"
               value={form.phone}

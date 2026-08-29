@@ -167,6 +167,36 @@ const patientSchema = new mongoose.Schema(
       index: true,
     },
 
+    /**
+     * Recurring dialysis-day pattern:
+     *   'mwf' = Monday / Wednesday / Friday
+     *   'tts' = Tuesday / Thursday / Saturday
+     * Combined with shift, this places the patient on a repeating weekly schedule.
+     */
+    dayPattern: {
+      type: String,
+      enum: ['mwf', 'tts', null],
+      default: null,
+      index: true,
+    },
+
+    /**
+     * Recurring dialysis booking. When active and the patient has a dayPattern +
+     * shift, the system generates Schedule records for the coming matching dates
+     * (Mon/Wed/Fri or Tue/Thu/Sat at the assigned shift), rolling forward until
+     * stopped. `chair` is the station to book; if unset the generator picks the
+     * patient's usual/first available station.
+     */
+    recurring: {
+      active: { type: Boolean, default: false, index: true },
+      chair: { type: mongoose.Schema.Types.ObjectId, ref: 'Chair' },
+      startedAt: Date,
+      startedByName: String,
+      stoppedAt: Date,
+      stoppedByName: String,
+      lastGeneratedDate: Date, // furthest date we've generated up to
+    },
+
     homeFacility: {
       facilityName: String,
       facilityPhone: String,

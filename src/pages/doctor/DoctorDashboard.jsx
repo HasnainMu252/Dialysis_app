@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Activity, AlertTriangle, CheckCircle2, ClipboardList, Search, Stethoscope, Users } from 'lucide-react';
@@ -109,6 +110,8 @@ export default function DoctorDashboard() {
         subtitle="Monthly SOAP rounds, pending checkups and patient clinical history."
         action={<button className="btn-light" onClick={load}>Refresh</button>}
       />
+
+      <TodayRosterBoxes />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Patients" value={patients.length} icon={Users} />
