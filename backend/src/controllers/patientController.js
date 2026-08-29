@@ -441,7 +441,7 @@ export const exportPatients = asyncHandler(async (req, res) => {
  * Turns on recurring booking and generates the coming schedules.
  */
 export const startRecurring = asyncHandler(async (req, res) => {
-  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  const patient = await Patient.findOne(getPatientQuery(req.params.idOrMrn));
   if (!patient) throw new ApiError(404, 'Patient not found');
   if (!patient.dayPattern || ![1, 2, 3].includes(Number(patient.shift))) {
     throw new ApiError(400, 'Set the patient\'s dialysis days (MWF/TTS) and shift before starting recurring schedules.');
@@ -471,7 +471,7 @@ export const startRecurring = asyncHandler(async (req, res) => {
  * future recurring schedules that haven't started yet.
  */
 export const stopRecurring = asyncHandler(async (req, res) => {
-  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  const patient = await Patient.findOne(getPatientQuery(req.params.idOrMrn));
   if (!patient) throw new ApiError(404, 'Patient not found');
 
   patient.recurring = {

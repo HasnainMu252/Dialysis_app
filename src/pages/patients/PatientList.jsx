@@ -384,6 +384,7 @@ export default function PatientList() {
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
   const fileInputRef = useRef(null);
 

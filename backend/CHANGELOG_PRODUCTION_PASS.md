@@ -1342,3 +1342,21 @@ smoke test on your dev DB. No new dependencies.
 Backend node --check x 99, frontend JSX clean. Cascade filter + orphan detection
 verified in-container. Live-DB delete path needs a smoke test on your dev DB.
 No new dependencies.
+
+---
+
+## Revision 48 — Fix recurring start/stop 404 (wrong route param name)
+
+### Bug: /recurring/start and /recurring/stop always returned 404
+- The routes use `:idOrMrn`, but `startRecurring` and `stopRecurring` read
+  `req.params.id` (undefined). getPatientQuery(undefined) matched no patient, so
+  the handler threw 404 "Patient not found" every time — regardless of server
+  restart.
+- Fixed both to read `req.params.idOrMrn` (matching their route param). Audited
+  all other `:idOrMrn` routes — they were already correct.
+
+Note: the `reading 'startTime'` error in the browser console comes from an
+external web-vitals/extension script (stack shows et.reportAllChanges in an
+eval'd anonymous script), not the app; the actionable issue was the 404.
+
+Backend node --check x 99, frontend JSX clean. No new dependencies.
