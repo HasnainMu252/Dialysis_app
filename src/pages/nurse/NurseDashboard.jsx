@@ -8,6 +8,7 @@ import EmptyState from '../../components/common/EmptyState';
 import ScheduleCard from '../../components/common/ScheduleCard';
 import PatientBoard from '../../components/common/PatientBoard';
 import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
+import NurseEntryFlow from '../../components/common/NurseEntryFlow';
 import { Link } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { personName } from '../../utils/format';
@@ -92,6 +93,19 @@ function DashboardStatCard({
 }
 
 export default function NurseDashboard() {
+  const [showEntry, setShowEntry] = useState(() => {
+    try {
+      const key = 'nurseEntryShown:' + (localStorage.getItem('token') || '');
+      return sessionStorage.getItem(key) !== '1';
+    } catch { return false; }
+  });
+  const dismissEntry = () => {
+    try {
+      const key = 'nurseEntryShown:' + (localStorage.getItem('token') || '');
+      sessionStorage.setItem(key, '1');
+    } catch { /* ignore */ }
+    setShowEntry(false);
+  };
   const [sessions, setSessions] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [meds, setMeds] = useState([]);
@@ -242,6 +256,7 @@ export default function NurseDashboard() {
 
   return (
     <div className="space-y-6">
+      {showEntry && <NurseEntryFlow onDone={dismissEntry} />}
       <PageHeader
         title="Nurse Dashboard"
         subtitle="Patients, treatment flow, schedules, vitals, SOAP and session history."

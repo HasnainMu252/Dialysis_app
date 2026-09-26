@@ -33,11 +33,39 @@ export default function ScheduleList() {
   const [session, setSession] = useState(null);
   const [search, setSearch] = useState('');
   const [date, setDate] = useState('');
+  const [shiftFilter, setShiftFilter] = useState('');
+  const [dayFilter, setDayFilter] = useState('');
   const [reason, setReason] = useState('Patient requested cancellation');
 
-  const currentItems = useMemo(() => items.filter((s) => !isPastOrCompleted(s)), [items]);
-  const historyItems = useMemo(() => items.filter(isPastOrCompleted), [items]);
-  const filtered = useMemo(() => currentItems.filter((s) => matchSchedule(s, search)), [currentItems, search]);
+  // Hide orphaned schedules whose patient was deleted (they show as "Unknown").
+  const namedItems = useMemo(
+    () => items.filter((s) => {
+      const n = String(s.patientName || '').trim().toLowerCase();
+      return s.patientId && n && n !== 'unknown patient' && n !== 'unknown';
+    }),
+    [items]
+  );
+  const passShiftDay = (s) => {
+    if (shiftFilter) {
+      const sh = s.shift ?? null;
+      if (Number(sh) !== Number(shiftFilter)) return false;
+    }
+    if (dayFilter) {
+      const wd = s.date ? new Date(s.date).getDay() : null;
+      const isMwf = [1, 3, 5].includes(wd);
+      const isTts = [2, 4, 6].includes(wd);
+      if (dayFilter === 'mwf' && !isMwf) return false;
+      if (dayFilter === 'tts' && !isTts) return false;
+    }
+    return true;
+  };
+  const currentItems = useMemo(() => namedItems.filter((s) => !isPastOrCompleted(s)), [namedItems]);
+  const historyItems = useMemo(() => namedItems.filter(isPastOrCompleted), [namedItems]);
+  const filtered = useMemo(
+    () => currentItems.filter((s) => matchSchedule(s, search) && passShiftDay(s)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentItems, search, shiftFilter, dayFilter]
+  );
   const curPage = usePagedList(filtered, '', []);
   const histPage = usePagedList(historyItems, '', []);
 
@@ -96,7 +124,26 @@ export default function ScheduleList() {
   };
 
   return <div className="space-y-5"><PageHeader title="Schedules" subtitle="Current/upcoming schedules only. Completed and past schedules move to history. Station, date and time are clearly shown to avoid double booking." />
-    <div className="card grid gap-3 p-4 md:grid-cols-5"><input className="input md:col-span-2" placeholder="Search phone / name / MRN / schedule" value={search} onChange={(e) => setSearch(e.target.value)} /><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /><button className="btn-light" onClick={load}>Load</button><button className="btn-light" onClick={() => { setDate(''); setSearch(''); setTimeout(load, 0); }}>Reset</button></div>
+    <div className="card grid gap-3 p-4 md:grid-cols-5"><input className="input md:col-span-2" placeholder="Search phone / name / MRN / schedule" value={search} onChange={(e) => setSearch(e.target.value)} /><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /><button className="btn-light" onClick={load}>Load</button><button className="btn-light" onClick={() => { setDate(''); setSearch(''); setShiftFilter(''); setDayFilter(''); setTimeout(load, 0); }}>Reset</button></div>
+
+    <div className="card flex flex-wrap items-center gap-4 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Shift</span>
+        <div className="flex flex-wrap gap-1.5">
+          {[['', 'All'], ['1', '1st'], ['2', '2nd'], ['3', '3rd']].map(([val, lbl]) => (
+            <button key={val || 'all'} type="button" onClick={() => setShiftFilter(val)} className={`rounded-lg px-3 py-1.5 text-sm font-bold transition ${shiftFilter === val ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Days</span>
+        <div className="flex flex-wrap gap-1.5">
+          {[['', 'All'], ['mwf', 'MWF'], ['tts', 'TTS']].map(([val, lbl]) => (
+            <button key={val || 'alldays'} type="button" onClick={() => setDayFilter(val)} className={`rounded-lg px-3 py-1.5 text-sm font-bold transition ${dayFilter === val ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+    </div>
     <div className="grid gap-5 xl:grid-cols-3"><section className="space-y-3 xl:col-span-1">{curPage.paged.map((s, i) => <ScheduleCard key={s.id || s.code} schedule={s} index={(curPage.page - 1) * curPage.pageSize + i + 1} onClick={() => view(s)} />)}{!filtered.length && <EmptyState message="No schedules found" />}<Pagination page={curPage.page} pageCount={curPage.pageCount} total={curPage.total} onPage={curPage.setPage} label="schedules" /></section>
       <section className="xl:col-span-2">{!selected && <EmptyState message="Click a schedule to view details." />}{selected && <div className="space-y-4"><div className="card p-5"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><h2 className="text-xl font-bold">{selected.code}</h2><p className="text-sm text-slate-500">{selected.patientName} • {selected.patientMrn} • {selected.patientPhone}</p></div><StatusBadge status={selected.status} /></div><div className="mt-4 grid gap-3 text-sm md:grid-cols-3"><div><span className="text-slate-500">Station</span><br />{selected.chair?.code} • {selected.chair?.location}</div><div><span className="text-slate-500">Date</span><br />{dateOnly(selected.date)}</div><div><span className="text-slate-500">Time</span><br />{selected.startTime}-{selected.endTime}</div></div>{selected.recurring && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3"><span className="text-sm font-bold text-emerald-700">Recurring schedule (repeats automatically)</span>{['admin', 'front_desk', 'nurse', 'doctor'].includes(user?.role) && <button className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-red-600 shadow-sm hover:bg-red-50" onClick={stopRecurringFromSchedule}>Stop Recurring</button>}</div>}{canManage && <><div className="mt-4 grid gap-3 md:grid-cols-4"><button className="btn-light" onClick={() => doAction('Schedule approved', () => scheduleApi.approve(selected.code))}>Approve</button><button className="btn-light" onClick={() => doAction('Schedule rejected', () => scheduleApi.reject(selected.code, { reason }))}>Reject</button>{!['completed', 'cancelled', 'no_show'].includes(String(selected.status || '').toLowerCase()) && <button className="btn-light" onClick={() => doAction('Cancel requested', () => scheduleApi.cancel(selected.code, { reason }))}>Cancel</button>}<button className="btn-danger" onClick={deleteSchedule}>Delete</button></div><input className="input mt-3" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for cancel/reject" /></>} {!canManage && (user?.role === 'nurse' ? (['completed', 'cancelled', 'no_show'].includes(String(selected.status || '').toLowerCase()) ? <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-500">This appointment is {selected.status} and can no longer be cancelled.</div> : <div className="mt-4 space-y-3"><button className="btn-light" onClick={() => doAction('Cancel requested', () => scheduleApi.cancel(selected.code, { reason }))}>Cancel Appointment</button><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for cancellation" /></div>) : <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-blue-700">View only access. Approval, reject, cancel and delete actions are hidden for your role.</div>)}</div>
         <div className="card p-5"><h3 className="mb-3 font-bold">Assigned Session</h3>{session ? <div className="text-sm"><div className="flex justify-between"><b>{session._id}</b><StatusBadge status={session.status} /></div><p>Vitals: {session.vitals?.length || 0} • SOAP: {session.soapNotes?.length || 0}</p><p>{session.treatmentSummary}</p></div> : <p className="text-sm text-slate-500">No session found. Old schedules may not have auto-created sessions.</p>}</div></div>}</section></div>

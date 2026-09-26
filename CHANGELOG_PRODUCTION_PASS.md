@@ -1360,3 +1360,160 @@ external web-vitals/extension script (stack shows et.reportAllChanges in an
 eval'd anonymous script), not the app; the actionable issue was the 404.
 
 Backend node --check x 99, frontend JSX clean. No new dependencies.
+
+---
+
+## Revision 49 — Mandatory AVF Cannulation Checklist gate before starting dialysis
+
+- New `CannulationChecklistModal` — the laminated AVF Cannulation Checklist
+  (Dialysis Unit 2026 Standard), shown as a scrollable popup. Nurse/technician
+  must scroll to the end before it can be acknowledged.
+- In the treatment flow, a "Cannulation Checklist" button sits next to
+  "View Prescription". Both show a pulsing red dot (for nurse/technician) until
+  opened and reviewed.
+- "Start Treatment" is now GATED for nurse and technician: it stays disabled with
+  a reminder banner until BOTH the checklist and the prescription have been
+  opened and scrolled through. Admin/doctor are not blocked.
+- The prescription viewer gained an `onViewed` callback (fires when its popup is
+  scrolled to the end, or immediately if the content is short).
+- The gate is per session — selecting a different patient requires reviewing both
+  again before starting.
+
+Frontend-only change; backend unchanged. Frontend JSX clean. No new dependencies.
+
+---
+
+## Revision 50 — Perf fix, Cannulation Instruction rename, workflow/schedule shift+day buttons, hide Stations, drop orphans
+
+### Performance (major)
+- Fixed a render loop: the prescription viewer's ref callback called onViewed on
+  every render, which set state in the workflow and re-rendered continuously —
+  this caused the slow Cannulation popup, the general lag, and console errors.
+  Replaced with a one-time latch (fires once on scroll-to-end or short content).
+- Guarded the checklist scroll handler to stop updating state once satisfied.
+
+### Cannulation Instruction
+- Renamed "Cannulation Checklist" -> "Cannulation Instruction" (button, banner,
+  reminder text).
+
+### Treatment Workflow
+- Replaced the shift dropdown with tap-friendly **Shift (All/1st/2nd/3rd)** and
+  **Days (All/MWF/TTS)** button groups so nurses/techs find their patients fast.
+- Removed the **Station** display from the session card, detail header, detail
+  grid and pending-review table (station clearance actions kept). Session card now
+  shows the Shift instead.
+
+### Schedules screen
+- Orphaned "Unknown patient" schedules are now hidden (frontend guard) AND
+  excluded server-side in listSchedules (skips schedules whose patient was
+  deleted). Use the admin "Clean up orphaned records" button to purge them.
+- Added the same **Shift** and **Days** button filters.
+- Current list already shows only active upcoming schedules; completed/cancelled/
+  no-show/past remain in the History section below.
+
+### Navigation
+- Removed the **Stations** link from the sidebar (admin + technician). The /chairs
+  route still exists but is unlinked.
+
+Backend node --check x 99, frontend JSX clean. No new dependencies.
+
+---
+
+## Revision 51 — Fix: View Prescription / Cannulation buttons not opening
+
+- The pulsing red "unread" dot on the Cannulation Instruction and View
+  Prescription buttons was an absolutely-positioned span over the button's
+  top-right corner WITHOUT pointer-events disabled, so it intercepted taps and
+  the buttons appeared unresponsive. Added `pointer-events-none` to both dots.
+- Bumped the prescription modal z-index (z-[130]) so it always renders above the
+  checklist modal and other overlays.
+
+Frontend-only. JSX clean. No new dependencies.
+
+---
+
+## Revision 52 — Fix: Cannulation Instruction modal not mounting while checked_in
+
+- Root cause: CannulationChecklistModal was rendered inside the
+  `(isInProgress || isPendingReview)` block, but the "Cannulation Instruction"
+  button lives in the `checked_in` state where that block isn't rendered. So
+  `checklistOpen` became true but the modal was never in the DOM.
+- Moved the modal to render ONCE inside the `selected` detail panel, outside all
+  status conditions (isCheckedIn / isInProgress / isPendingReview / isCompleted),
+  so it opens whenever a session is selected — including checked_in.
+- The modal now resets its `scrolledToEnd` gate and scrolls back to top every time
+  it opens (it's always mounted now), so each open requires a fresh read.
+- On acknowledge: sets readChecklistFor(selected._id) and closes.
+- Start-treatment gate unchanged: nurse/tech must review BOTH Cannulation
+  Instruction and Dialysis Prescription. Portal confirmed correct
+  (createPortal to document.body).
+
+Frontend-only. JSX clean. No new dependencies.
+
+---
+
+## Revision 53 — One-time guided entry for nurse/technician; dashboard boxes -> treatment flow
+
+### Guided entry after login (nurse + technician)
+- New `NurseEntryFlow`: shows once per login (tracked in sessionStorage keyed to
+  the auth token) on the nurse/technician dashboard.
+  - Step 1: full-screen Cannulation Instruction with **Next** (after scrolling to
+    the end) and **Skip**.
+  - Step 2: big **Days** buttons — Mon/Wed/Fri or Tue/Thu/Sat.
+  - Step 3: big **Shift** buttons — 1st (05:00-08:00), 2nd (09:00-12:00),
+    3rd (12:30-16:00).
+  - Finishing redirects to the Treatment Workflow filtered by the chosen day+shift.
+  - Skip at any point -> Treatment Workflow with no filter (all days/all shifts).
+- CannulationChecklistModal gained `acknowledgeLabel`, `showSkip`, `onSkip` props
+  (used as the "Next"/"Skip" step here; the in-flow start-treatment gate is
+  unchanged and still uses the default label).
+
+### Dashboard boxes now open the treatment flow
+- The Today shift boxes and the MWF/TTS boxes now link to
+  `/workflow?shift=` / `?dayPattern=` (was `/patients?...`).
+- Treatment Workflow now initialises its Shift and Days filters from the URL
+  (`?shift=`, `?dayPattern=`), so the boxes and guided flow deep-link straight
+  into the filtered session list.
+
+Frontend-only. JSX clean. No new dependencies.
+
+---
+
+## Revision 54 — Guided entry as full-page screens (Instruction / Days / Shift)
+
+- Rewrote NurseEntryFlow so each step is its OWN FULL PAGE (was a centered popup):
+  - Full-page Cannulation Instruction (scroll to end -> Next), Skip available.
+  - Full-page Days screen (big MWF / TTS buttons).
+  - Full-page Shift screen (big 1st/2nd/3rd buttons with times) — this is the
+    step that wasn't showing before.
+  - Finish -> /workflow?dayPattern=&shift=; Skip -> /workflow (all).
+- Extracted the instruction content to `cannulationData.js`, shared by both the
+  full-page flow and the in-treatment CannulationChecklistModal (single source).
+
+Frontend-only. JSX clean. No new dependencies.
+
+---
+
+## Revision 55 — Role-picker landing, login role hint, General Instructions gate (Doctor + Front Desk)
+
+Adopted the user's uploaded src as base (= Rev 54 + minor reformatting).
+
+### New app entry flow
+- New full-screen **Role Picker** (`/welcome`) showing all 9 roles as big boxes.
+  Clicking a role opens the login screen with that role as a hint (`/login?role=`).
+- Unauthenticated users now land on `/welcome` (ProtectedRoute redirect changed
+  from `/login`). `/login` still works directly.
+- Login shows a "Signing in as <Role>" badge from the `?role=` hint. Credentials
+  are still validated; the account's real role decides the dashboard (visual
+  entry only, no bypass).
+- Flow: Role boxes -> Login -> (Doctor/Front Desk: General Instructions) -> Dashboard.
+
+### General Instructions gate (Doctor + Front Desk)
+- New full-page **GeneralInstructionsGate** with the 12-point General Instructions,
+  shown once per login (sessionStorage keyed to token) before the dashboard.
+  Must scroll to the end, then "Continue to Dashboard".
+- Wired into DoctorDashboard (gateKey="doctor") and FrontDeskDashboard
+  (gateKey="frontdesk"). Other roles unaffected; nurse/tech keep their existing
+  Cannulation entry flow.
+
+Frontend-only. JSX clean. No new dependencies.

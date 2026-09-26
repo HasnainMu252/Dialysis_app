@@ -5,6 +5,7 @@ import ProtectedRoute from '../components/auth/ProtectedRoute';
 import AuthLayout from '../layouts/AuthLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
 import Login from '../pages/auth/Login';
+import RolePicker from '../pages/auth/RolePicker';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import FrontDeskDashboard from '../pages/frontDesk/FrontDeskDashboard';
 import NurseDashboard from '../pages/nurse/NurseDashboard';
@@ -63,6 +64,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route element={<AuthLayout />}>
+        <Route path="/welcome" element={<RolePicker />} />
         <Route path="/login" element={<Login />} />
       </Route>
 

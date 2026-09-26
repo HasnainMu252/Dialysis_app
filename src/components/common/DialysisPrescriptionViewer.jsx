@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileText, X, Stethoscope, History } from 'lucide-react';
 import { dialysisPrescriptionApi, RX_VIEW_GROUPS } from '../../api/dialysisPrescriptionApi';
 import Portal from './Portal';
@@ -15,7 +15,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleString() : '');
  * hemodialysis order. Nurse / technician read this and run the treatment
  * accordingly. `patientId` is an id or MRN.
  */
-export default function DialysisPrescriptionViewer({ patientId, buttonClassName = 'btn-light', label = 'View Prescription' }) {
+export default function DialysisPrescriptionViewer({ patientId, buttonClassName = 'btn-light', label = 'View Prescription', onViewed }) {
   const [open, setOpen] = useState(false);
   const [rx, setRx] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,6 +23,38 @@ export default function DialysisPrescriptionViewer({ patientId, buttonClassName 
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  const bodyRef = useRef(null);
+  const viewedFiredRef = useRef(false);
+
+  const markViewed = () => {
+    if (viewedFiredRef.current) return;
+    viewedFiredRef.current = true;
+    onViewed?.();
+  };
+
+  const handleBodyScroll = (e) => {
+    if (viewedFiredRef.current) return;
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) {
+      markViewed();
+    }
+  };
+
+  // When the prescription finishes loading, if it's short enough that there's
+  // nothing to scroll, count it as viewed once.
+  useEffect(() => {
+    if (!open || !loaded) return;
+    const el = bodyRef.current;
+    if (el && el.scrollHeight <= el.clientHeight + 40) markViewed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loaded]);
+
+  // Reset the "viewed" latch each time the popup is closed so re-opening for a
+  // different patient requires a fresh read.
+  useEffect(() => {
+    if (!open) viewedFiredRef.current = false;
+  }, [open]);
 
   useEffect(() => {
     if (!open || loaded || !patientId) return;
@@ -54,7 +86,7 @@ export default function DialysisPrescriptionViewer({ patientId, buttonClassName 
 
       {open && (
         <Portal>
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setOpen(false)}>
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setOpen(false)}>
             <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between border-b bg-gradient-to-r from-sky-700 to-cyan-700 px-5 py-3 text-white">
                 <h3 className="flex items-center gap-2 font-bold"><Stethoscope size={18} /> Hemodialysis Order</h3>
@@ -66,7 +98,7 @@ export default function DialysisPrescriptionViewer({ patientId, buttonClassName 
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-auto p-5">
+              <div className="min-h-0 flex-1 overflow-auto p-5" onScroll={handleBodyScroll} ref={bodyRef}>
                 {showHistory ? (
                   <div className="space-y-3">
                     <p className="text-xs font-extrabold uppercase tracking-wide text-slate-400">Prescription history (newest first)</p>

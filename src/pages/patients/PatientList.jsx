@@ -372,7 +372,7 @@ export default function PatientList() {
 
   const allowEdit = canEditPatient(user?.role);
   const allowExport = exportRoles.includes(user?.role);
-
+const [cleaningOrphans, setCleaningOrphans] = useState(false);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -384,7 +384,6 @@ export default function PatientList() {
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
   const fileInputRef = useRef(null);
 

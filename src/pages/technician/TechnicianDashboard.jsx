@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
+import NurseEntryFlow from '../../components/common/NurseEntryFlow';
 import toast from 'react-hot-toast';
 import {
   Activity,
@@ -91,6 +92,19 @@ const formatTimeRange = (schedule) => {
 };
 
 export default function TechnicianDashboard() {
+  const [showEntry, setShowEntry] = useState(() => {
+    try {
+      const key = 'nurseEntryShown:' + (localStorage.getItem('token') || '');
+      return sessionStorage.getItem(key) !== '1';
+    } catch { return false; }
+  });
+  const dismissEntry = () => {
+    try {
+      const key = 'nurseEntryShown:' + (localStorage.getItem('token') || '');
+      sessionStorage.setItem(key, '1');
+    } catch { /* ignore */ }
+    setShowEntry(false);
+  };
   const [chairs, setChairs] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -202,6 +216,7 @@ export default function TechnicianDashboard() {
 
   return (
     <div className="space-y-6">
+      {showEntry && <NurseEntryFlow onDone={dismissEntry} />}
       <PageHeader
         title="Technician Dashboard"
         subtitle="Monitor station availability, technical clearance and today’s patient treatment workflow."

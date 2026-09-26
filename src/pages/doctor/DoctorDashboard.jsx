@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
+import GeneralInstructionsGate from '../../components/common/GeneralInstructionsGate';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Activity, AlertTriangle, CheckCircle2, ClipboardList, Search, Stethoscope, Users } from 'lucide-react';
@@ -105,6 +106,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="space-y-6">
+      <GeneralInstructionsGate gateKey="doctor" />
       <PageHeader
         title="Doctor Dashboard"
         subtitle="Monthly SOAP rounds, pending checkups and patient clinical history."

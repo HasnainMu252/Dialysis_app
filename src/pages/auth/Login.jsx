@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -43,7 +43,9 @@ const slides = [
   },
 ];
 
-/* Icons */
+/* =========================
+   ICONS
+========================= */
 
 function MailIcon() {
   return (
@@ -213,6 +215,10 @@ function CheckIcon() {
   );
 }
 
+/* =========================
+   LOGIN
+========================= */
+
 export default function Login() {
   const [form, setForm] = useState({
     email: '',
@@ -229,6 +235,26 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const roleHint = new URLSearchParams(location.search).get('role');
+
+  const ROLE_LABELS = {
+    admin: 'Admin',
+    front_desk: 'Front Desk',
+    doctor: 'Doctor',
+    nurse: 'Nurse',
+    technician: 'Technician',
+    social_worker: 'Social Worker',
+    biller: 'Biller',
+    insurance_person: 'Insurance',
+    patient: 'Patient',
+  };
+
+  const roleHintLabel = roleHint ? ROLE_LABELS[roleHint] : '';
+
+  /* =========================
+     SLIDER TIMER
+  ========================= */
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       setSlide((currentSlide) => (currentSlide + 1) % slides.length);
@@ -236,6 +262,10 @@ export default function Login() {
 
     return () => window.clearInterval(timer);
   }, []);
+
+  /* =========================
+     FORM HANDLERS
+  ========================= */
 
   const updateField = (field, value) => {
     setForm((current) => ({
@@ -254,6 +284,10 @@ export default function Login() {
     setMfaRequired(false);
   };
 
+  /* =========================
+     LOGIN SUBMIT
+  ========================= */
+
   const submit = async (event) => {
     event.preventDefault();
 
@@ -269,7 +303,6 @@ export default function Login() {
 
       if (result?.mfaRequired) {
         setMfaRequired(true);
-        setShowQuickUsers(false);
 
         setForm((current) => ({
           ...current,
@@ -309,20 +342,35 @@ export default function Login() {
   const activeSlide = slides[slide];
 
   return (
-    <main className="fixed inset-0 z-[9999] grid h-[100dvh] w-screen overflow-hidden bg-slate-950 lg:grid-cols-[1.08fr_0.92fr]">
-      {/* Left panel */}
-      <section className="relative hidden h-full min-h-0 overflow-hidden lg:flex">
+    <main className="fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-hidden bg-slate-950">
+      {/* =====================================================
+          FULL SCREEN BACKGROUND
+      ===================================================== */}
+
+      <section className="absolute inset-0 overflow-hidden">
+        {/* Gradient slides */}
         {slides.map((item, index) => (
           <div
             key={item.title}
-            className={`absolute inset-0 bg-gradient-to-br ${item.from} ${item.via} ${item.to} transition-all duration-1000 ${
-              index === slide
-                ? 'scale-100 opacity-100'
-                : 'scale-105 opacity-0'
-            }`}
+            className={`
+              absolute
+              inset-0
+              bg-gradient-to-br
+              ${item.from}
+              ${item.via}
+              ${item.to}
+              transition-all
+              duration-1000
+              ${
+                index === slide
+                  ? 'scale-100 opacity-100'
+                  : 'scale-105 opacity-0'
+              }
+            `}
           />
         ))}
 
+        {/* Dot texture */}
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -332,75 +380,114 @@ export default function Login() {
           }}
         />
 
+        {/* Glow */}
         <div className="absolute -left-32 top-20 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-32 right-0 h-[500px] w-[500px] rounded-full bg-cyan-300/20 blur-3xl" />
 
-        <div className="relative z-10 flex h-full w-full min-h-0 flex-col justify-between p-8 xl:p-12 [@media(max-height:780px)]:p-6">
-          {/* Desktop branding */}
-          <div className="flex items-start justify-between gap-5">
-            <div className="flex items-center gap-5 rounded-2xl px-4 py-3 backdrop-blur-xl">
-  {/* Azuza Logo */}
-  <div className="flex h-24 w-48 items-center justify-center border-r border-slate-200 pr-5 [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-36">
-    <img
-      src={Azuza}
-      alt="Azuza Dialysis Center"
-      className="h-full w-full object-contain"
-    />
-  </div>
+        {/* Slight dark overlay */}
+        <div className="absolute inset-0 bg-slate-950/10" />
 
-  {/* Aegle Logo */}
-  <div className="flex h-24 w-48 items-center justify-center [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-36">
-    <img
-      src={Aegle}
-      alt="Aegle Management"
-      className="h-full w-full object-contain"
-    />
-  </div>
-</div>
+        {/* =====================================================
+            LEFT BACKGROUND INFORMATION
+        ===================================================== */}
 
-            <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-xl">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300" />
-              </span>
+        <div className="relative z-10 hidden h-full w-full lg:block">
+          {/* LOGOS */}
 
-              Secure system online
+          <div className="absolute left-10 top-7">
+            <div className="flex items-center gap-5 rounded-2xl bg-black/5 px-5 py-3 backdrop-blur-md">
+              <div className="flex h-16 w-40 items-center justify-center border-r border-white/25 pr-5">
+                <img
+                  src={Azuza}
+                  alt="Azuza Dialysis Center"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              <div className="flex h-16 w-40 items-center justify-center">
+                <img
+                  src={Aegle}
+                  alt="Aegle Management"
+                  className="h-full w-full object-contain"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Slide content */}
-          <div className="max-w-xl py-5 [@media(max-height:780px)]:py-2">
+          {/* MAIN INFORMATION */}
+
+          <div
+            className="
+              absolute
+              left-10
+              top-1/2
+              w-full
+              max-w-[490px]
+              -translate-y-1/2
+            "
+          >
             <div
               className={`mb-5 h-1.5 w-16 rounded-full ${activeSlide.accent}`}
             />
 
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.22em] text-white/70">
-              Intelligent healthcare management
+            <p className="mb-4 text-sm font-bold uppercase tracking-[0.20em] text-white/70">
+              Intelligent Healthcare Management
             </p>
 
             <h2
               key={activeSlide.title}
-              className="max-w-lg text-4xl font-black leading-[1.08] tracking-tight text-white xl:text-5xl 2xl:text-6xl [@media(max-height:780px)]:text-4xl"
+              className="
+                max-w-[470px]
+                text-4xl
+                font-black
+                leading-[1.08]
+                tracking-tight
+                text-white
+                xl:text-5xl
+              "
             >
               {activeSlide.title}
             </h2>
 
             <p
               key={activeSlide.text}
-              className="mt-5 max-w-lg text-base leading-7 text-white/80 xl:text-lg [@media(max-height:780px)]:mt-3 [@media(max-height:780px)]:text-sm [@media(max-height:780px)]:leading-6"
+              className="
+                mt-5
+                max-w-[470px]
+                text-base
+                leading-7
+                text-white/80
+                xl:text-lg
+              "
             >
               {activeSlide.text}
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-2 [@media(max-height:780px)]:mt-4">
+            {/* FEATURES */}
+
+            <div className="mt-7 flex flex-wrap gap-2">
               {[
-                'HIPAA-focused security',
-                'Role-based access',
-                'Real-time workflow',
+                'Secure Access',
+                'Role-based Access',
+                'Real-time Workflow',
               ].map((feature) => (
                 <div
                   key={feature}
-                  className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-medium text-white backdrop-blur-xl"
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                    rounded-full
+                    border
+                    border-white/20
+                    bg-white/10
+                    px-4
+                    py-2
+                    text-xs
+                    font-semibold
+                    text-white
+                    backdrop-blur-xl
+                  "
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
                     <CheckIcon />
@@ -411,138 +498,176 @@ export default function Login() {
               ))}
             </div>
 
-            <div className="mt-7 grid max-w-lg grid-cols-3 gap-3 [@media(max-height:760px)]:hidden">
-              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-xl">
-                <p className="text-xs font-medium text-white/60">
-                  Patient care
-                </p>
-                <p className="mt-2 text-lg font-bold text-white">
-                  Centralized
-                </p>
-              </div>
+            {/* SLIDER DOTS */}
 
-              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-xl">
-                <p className="text-xs font-medium text-white/60">
-                  Access
-                </p>
-                <p className="mt-2 text-lg font-bold text-white">
-                  Role-based
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-xl">
-                <p className="text-xs font-medium text-white/60">
-                  Security
-                </p>
-                <p className="mt-2 text-lg font-bold text-white">
-                  MFA ready
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-7 flex items-center gap-2 [@media(max-height:780px)]:mt-4">
+            <div className="mt-8 flex items-center gap-2">
               {slides.map((item, index) => (
                 <button
                   key={item.title}
                   type="button"
                   onClick={() => setSlide(index)}
                   aria-label={`View slide ${index + 1}`}
-                  className={`h-2.5 rounded-full transition-all duration-500 ${
-                    index === slide
-                      ? 'w-10 bg-white'
-                      : 'w-2.5 bg-white/40 hover:bg-white/70'
-                  }`}
+                  className={`
+                    h-2.5
+                    rounded-full
+                    transition-all
+                    duration-500
+                    ${
+                      index === slide
+                        ? 'w-10 bg-white'
+                        : 'w-2.5 bg-white/40 hover:bg-white/70'
+                    }
+                  `}
                 />
               ))}
             </div>
           </div>
-
-          {/* Desktop footer */}
-          <div className="flex items-end justify-between gap-6 text-xs text-white/60">
-            <p>
-              Azuza Dialysis Center
-              <br />
-              Powered by Aegle Management
-            </p>
-
-            <p className="text-right">
-              Protected with secure authentication
-              <br />
-              and role-based authorization
-            </p>
-          </div>
         </div>
       </section>
 
-      {/* Right login section */}
-      <section className="relative flex h-full min-h-0 items-center justify-center overflow-hidden bg-slate-50 px-4 py-3 sm:px-7 lg:px-8 xl:px-12">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-200/50 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-28 -left-28 h-80 w-80 rounded-full bg-cyan-200/40 blur-3xl" />
+      {/* =====================================================
+          CENTER LOGIN
+      ===================================================== */}
 
-        <div className="relative z-10 flex w-full max-w-[460px] flex-col justify-center">
-          {/* Login card */}
-          <div className="relative rounded-[26px] border border-white bg-white/95 p-5 shadow-[0_30px_80px_-30px_rgba(15,23,42,0.28)] backdrop-blur-xl sm:p-7 [@media(max-height:750px)]:p-5">
-            {/* Logos */}
-            {/* <div className="mb-4 flex items-center justify-between gap-4 border-b border-slate-100 pb-4 [@media(max-height:700px)]:mb-3 [@media(max-height:700px)]:pb-3">
-              <div className="flex h-12 min-w-0 flex-1 items-center justify-center border-r border-slate-200 pr-4">
-                <img
-                  src={Azuza}
-                  alt="Azuza Dialysis Center"
-                  className="max-h-11 max-w-full object-contain"
-                />
-              </div>
+      <section className="absolute inset-0 z-20 flex items-center justify-center px-4 py-5 sm:px-6">
+        <div className="w-full max-w-[650px]">
+          {/* MOBILE LOGOS */}
 
-              <div className="flex h-12 min-w-0 flex-1 items-center justify-center">
-                <img
-                  src={Aegle}
-                  alt="Aegle Management"
-                  className="max-h-11 max-w-full object-contain"
-                />
-              </div>
-            </div> */}
+          <div className="mb-4 flex items-center justify-center gap-5 lg:hidden">
+            <div className="flex h-14 w-28 items-center justify-center border-r border-white/30 pr-4">
+              <img
+                src={Azuza}
+                alt="Azuza Dialysis Center"
+                className="h-full w-full object-contain"
+              />
+            </div>
 
-            {/* Header */}
-            <div className="mb-5 [@media(max-height:700px)]:mb-3">
-              <div className="mb-3 flex items-center gap-3">
-                <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25">
-                  <ShieldIcon />
+            <div className="flex h-14 w-28 items-center justify-center">
+              <img
+                src={Aegle}
+                alt="Aegle Management"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </div>
+
+          {/* =================================================
+              LOGIN CARD
+          ================================================= */}
+
+          <div
+            className="
+              rounded-[32px]
+              border
+              border-white/70
+              bg-white/95
+              p-7
+              shadow-[0_35px_100px_-25px_rgba(15,23,42,0.5)]
+              backdrop-blur-2xl
+              sm:p-9
+              xl:p-10
+              [@media(max-height:780px)]:p-7
+            "
+          >
+            {/* CARD HEADER */}
+
+            <div className="mb-7 [@media(max-height:780px)]:mb-5">
+              <div className="mb-5 flex items-center gap-4">
+                <div
+                  className="
+                    inline-flex
+                    h-14
+                    w-14
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-gradient-to-br
+                    from-blue-600
+                    to-cyan-500
+                    text-white
+                    shadow-lg
+                    shadow-blue-500/25
+                  "
+                >
+                  <ShieldIcon className="h-6 w-6" />
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-600">
+                  <p className="text-sm font-bold uppercase tracking-[0.12em] text-blue-600">
                     Azuza Dialysis Center
                   </p>
 
-                  <p className="mt-0.5 text-xs text-slate-400">
+                  <p className="mt-1 text-sm text-slate-400">
                     Powered by Aegle Management
                   </p>
                 </div>
               </div>
 
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 [@media(max-height:700px)]:text-2xl">
+              <h1 className="text-4xl font-black tracking-tight text-slate-900 xl:text-5xl">
                 Welcome back
               </h1>
 
-              <p className="mt-1 text-sm leading-5 text-slate-500 [@media(max-height:650px)]:hidden">
+              <p className="mt-2 max-w-lg text-base leading-7 text-slate-500 xl:text-lg">
                 Sign in securely to access your dialysis management dashboard.
               </p>
+
+              {roleHintLabel && (
+                <div className="mt-4">
+                  <span
+                    className="
+                      inline-flex
+                      items-center
+                      rounded-xl
+                      border
+                      border-blue-100
+                      bg-blue-50
+                      px-4
+                      py-2
+                      text-sm
+                      font-bold
+                      text-blue-700
+                    "
+                  >
+                    Signing in as {roleHintLabel}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* =================================================
+                LOGIN FORM
+            ================================================= */}
 
             <form
               onSubmit={submit}
-              className="space-y-3 [@media(max-height:700px)]:space-y-2.5"
+              className="space-y-5 [@media(max-height:780px)]:space-y-4"
             >
-              {/* Email */}
+              {/* EMAIL */}
+
               <div>
                 <label
                   htmlFor="email"
-                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                  className="mb-2 block text-base font-semibold text-slate-700"
                 >
                   Email address
                 </label>
 
                 <div className="group relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 transition-colors group-focus-within:text-blue-600">
+                  <span
+                    className="
+                      pointer-events-none
+                      absolute
+                      inset-y-0
+                      left-0
+                      flex
+                      items-center
+                      pl-5
+                      text-slate-400
+                      transition-colors
+                      group-focus-within:text-blue-600
+                    "
+                  >
                     <MailIcon />
                   </span>
 
@@ -551,27 +676,66 @@ export default function Login() {
                     type="email"
                     value={form.email}
                     onChange={(event) =>
-                      changeCredentials('email', event.target.value)
+                      changeCredentials(
+                        'email',
+                        event.target.value
+                      )
                     }
                     autoComplete="email"
                     placeholder="name@example.com"
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 [@media(max-height:700px)]:py-2.5"
+                    className="
+                      w-full
+                      rounded-2xl
+                      border
+                      border-slate-200
+                      bg-slate-50
+                      py-4
+                      pl-14
+                      pr-5
+                      text-base
+                      font-medium
+                      text-slate-900
+                      outline-none
+                      transition-all
+                      placeholder:text-slate-400
+                      hover:border-slate-300
+                      focus:border-blue-500
+                      focus:bg-white
+                      focus:ring-4
+                      focus:ring-blue-500/10
+                      xl:py-[18px]
+                      xl:text-lg
+                    "
                   />
                 </div>
               </div>
 
-              {/* Password */}
+              {/* PASSWORD */}
+
               <div>
                 <label
                   htmlFor="password"
-                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                  className="mb-2 block text-base font-semibold text-slate-700"
                 >
                   Password
                 </label>
 
                 <div className="group relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 transition-colors group-focus-within:text-blue-600">
+                  <span
+                    className="
+                      pointer-events-none
+                      absolute
+                      inset-y-0
+                      left-0
+                      flex
+                      items-center
+                      pl-5
+                      text-slate-400
+                      transition-colors
+                      group-focus-within:text-blue-600
+                    "
+                  >
                     <LockIcon />
                   </span>
 
@@ -580,23 +744,62 @@ export default function Login() {
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
                     onChange={(event) =>
-                      changeCredentials('password', event.target.value)
+                      changeCredentials(
+                        'password',
+                        event.target.value
+                      )
                     }
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-12 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 [@media(max-height:700px)]:py-2.5"
+                    className="
+                      w-full
+                      rounded-2xl
+                      border
+                      border-slate-200
+                      bg-slate-50
+                      py-4
+                      pl-14
+                      pr-14
+                      text-base
+                      font-medium
+                      text-slate-900
+                      outline-none
+                      transition-all
+                      placeholder:text-slate-400
+                      hover:border-slate-300
+                      focus:border-blue-500
+                      focus:bg-white
+                      focus:ring-4
+                      focus:ring-blue-500/10
+                      xl:py-[18px]
+                      xl:text-lg
+                    "
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword((current) => !current)
+                      setShowPassword(
+                        (current) => !current
+                      )
                     }
                     aria-label={
-                      showPassword ? 'Hide password' : 'Show password'
+                      showPassword
+                        ? 'Hide password'
+                        : 'Show password'
                     }
-                    className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 transition hover:text-blue-600"
+                    className="
+                      absolute
+                      inset-y-0
+                      right-0
+                      flex
+                      items-center
+                      px-5
+                      text-slate-400
+                      transition
+                      hover:text-blue-600
+                    "
                   >
                     <EyeIcon hidden={showPassword} />
                   </button>
@@ -604,20 +807,21 @@ export default function Login() {
               </div>
 
               {/* MFA */}
+
               {mfaRequired && (
-                <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3">
-                  <div className="mb-2 flex items-start gap-2">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
-                      <ShieldIcon className="h-4 w-4" />
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4">
+                  <div className="mb-3 flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                      <ShieldIcon className="h-5 w-5" />
                     </div>
 
                     <div>
-                      <p className="text-sm font-bold text-blue-950">
+                      <p className="text-base font-bold text-blue-950">
                         Two-factor authentication
                       </p>
 
-                      <p className="text-xs leading-4 text-blue-700">
-                        Enter the code from your authenticator app.
+                      <p className="mt-0.5 text-sm leading-5 text-blue-700">
+                        Enter the 6-digit code from your authenticator app.
                       </p>
                     </div>
                   </div>
@@ -639,23 +843,74 @@ export default function Login() {
                     }
                     autoFocus
                     required
-                    className="w-full rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-center text-lg font-bold tracking-[0.45em] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                    className="
+                      w-full
+                      rounded-2xl
+                      border
+                      border-blue-200
+                      bg-white
+                      px-4
+                      py-4
+                      text-center
+                      text-xl
+                      font-bold
+                      tracking-[0.45em]
+                      text-slate-900
+                      outline-none
+                      transition
+                      focus:border-blue-500
+                      focus:ring-4
+                      focus:ring-blue-500/10
+                    "
                   />
                 </div>
               )}
 
-              {/* Submit */}
+              {/* LOGIN BUTTON */}
+
               <button
                 type="submit"
                 disabled={
                   loading ||
-                  (mfaRequired && form.mfaToken.length !== 6)
+                  (mfaRequired &&
+                    form.mfaToken.length !== 6)
                 }
-                className="group flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 [@media(max-height:700px)]:py-2.5"
+                className="
+                  group
+                  flex
+                  w-full
+                  items-center
+                  justify-center
+                  gap-3
+                  rounded-2xl
+                  bg-gradient-to-r
+                  from-blue-700
+                  via-blue-600
+                  to-cyan-500
+                  px-6
+                  py-4
+                  text-base
+                  font-bold
+                  text-white
+                  shadow-xl
+                  shadow-blue-500/25
+                  transition-all
+                  duration-300
+                  hover:-translate-y-0.5
+                  hover:shadow-2xl
+                  focus:outline-none
+                  focus:ring-4
+                  focus:ring-blue-500/20
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                  disabled:hover:translate-y-0
+                  xl:py-[18px]
+                  xl:text-lg
+                "
               >
                 {loading ? (
                   <>
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
 
                     {mfaRequired
                       ? 'Verifying code...'
@@ -674,19 +929,60 @@ export default function Login() {
                 )}
               </button>
             </form>
-          </div>
 
-          {/* Footer */}
-          <div className="mt-2 flex items-center justify-center gap-2 text-center text-[10px] text-slate-400 [@media(max-height:650px)]:hidden">
-            <ShieldIcon className="h-3.5 w-3.5" />
+            {/* ONE SECURITY MESSAGE ONLY */}
 
-            <span>
-              © {new Date().getFullYear()} Azuza Dialysis Center · Powered by
-              Aegle
-            </span>
+            <div
+              className="
+                mt-6
+                flex
+                items-center
+                justify-center
+                gap-2
+                rounded-xl
+                bg-slate-50
+                px-4
+                py-3
+                text-sm
+                text-slate-500
+              "
+            >
+              <ShieldIcon className="h-4 w-4 text-emerald-600" />
+
+              <span>
+                Secure access for authorized clinic staff only
+              </span>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* =====================================================
+          SINGLE PAGE FOOTER
+      ===================================================== */}
+
+      <div
+        className="
+          absolute
+          bottom-4
+          left-1/2
+          z-30
+          hidden
+          -translate-x-1/2
+          items-center
+          gap-2
+          whitespace-nowrap
+          text-xs
+          text-white/70
+          lg:flex
+        "
+      >
+        <ShieldIcon className="h-4 w-4" />
+
+        <span>
+          © {new Date().getFullYear()} Azuza Dialysis Center · Powered by Aegle Management
+        </span>
+      </div>
     </main>
   );
 }

@@ -145,7 +145,6 @@ export const NAV_BY_ROLE = {
     ['Patients', '/front-desk/patients', 'users'],
     ['Create Schedule', '/front-desk/scheduling', 'calendar'],
     ['Schedules', '/schedules', 'calendar'],
-    ['Stations', '/chairs', 'chair'],
     ['Station Maintenance', '/technician/maintenance', 'wrench'],
     ['Treatment Workflow', '/workflow', 'stethoscope'],
     ['Batch Monthly Round', '/doctor/batch-round', 'stethoscope'],
@@ -172,7 +171,6 @@ export const NAV_BY_ROLE = {
   [ROLES.TECHNICIAN]: [
     ['Technician Dashboard', '/technician', 'home'],
     ['Patients', '/patients', 'users'],
-    ['Stations Status', '/chairs', 'chair'],
     ['Station Maintenance', '/technician/maintenance', 'wrench'],
     ['Treatment Workflow', '/workflow', 'activity'],
   ],

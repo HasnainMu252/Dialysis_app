@@ -236,7 +236,7 @@ export const listSchedules = asyncHandler(async (req, res) => {
     filter.chair = chairDoc._id;
   }
 
-  const schedules = await Schedule.find(filter)
+  const schedules = (await Schedule.find(filter)
     .populate({
       path: 'patient',
       select: 'firstName lastName mrn phone email',
@@ -248,7 +248,9 @@ export const listSchedules = asyncHandler(async (req, res) => {
       strictPopulate: false,
     })
     .populate({ path: 'createdBy', select: 'name role', strictPopulate: false })
-    .sort({ date: 1, startTime: 1 });
+    .sort({ date: 1, startTime: 1 }))
+    // Skip orphaned schedules whose patient was deleted (would show as "Unknown").
+    .filter((s) => s.patient);
 
   // Batch-join check-in times from the linked dialysis sessions (single query).
   const sessions = await DialysisSession.find({ schedule: { $in: schedules.map((s) => s._id) } })

@@ -44,7 +44,7 @@ export default function TodayRosterBoxes() {
         {[1, 2, 3].map((sh) => (
           <Link
             key={sh}
-            to={`/patients?shift=${sh}`}
+            to={`/workflow?shift=${sh}`}
             className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${SHIFT_META[sh].color} p-5 text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg`}
           >
             <p className="text-sm font-semibold opacity-90">Today · {SHIFT_META[sh].label}</p>
@@ -61,14 +61,14 @@ export default function TodayRosterBoxes() {
       {/* Day-pattern quick nav */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Link
-          to="/patients?dayPattern=mwf"
+          to="/workflow?dayPattern=mwf"
           className="flex items-center justify-between rounded-2xl border border-indigo-200 bg-indigo-50 p-4 font-bold text-indigo-800 transition hover:-translate-y-0.5 hover:shadow-md"
         >
           <span>Mon / Wed / Fri</span>
           <span className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white">MWF</span>
         </Link>
         <Link
-          to="/patients?dayPattern=tts"
+          to="/workflow?dayPattern=tts"
           className="flex items-center justify-between rounded-2xl border border-teal-200 bg-teal-50 p-4 font-bold text-teal-800 transition hover:-translate-y-0.5 hover:shadow-md"
         >
           <span>Tue / Thu / Sat</span>

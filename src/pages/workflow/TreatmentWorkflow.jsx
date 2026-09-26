@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import {
   useCallback,
   useEffect,
@@ -45,6 +46,7 @@ import SessionNotesCard from '../../components/workflow/SessionNotesCard';
 import NurseReviewCard from '../../components/workflow/NurseReviewCard';
 import LabPanel from '../../components/common/LabPanel';
 import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
+import CannulationChecklistModal from '../../components/common/CannulationChecklistModal';
 import HomeMedQuickAdd from '../../components/common/HomeMedQuickAdd';
 import CqiPanel from '../../components/common/CqiPanel';
 import { accessTypesForRole } from '../../api/medicationApi';
@@ -237,11 +239,18 @@ export default function TreatmentWorkflow() {
   const [view, setView] = useState('scheduled');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
-  const [shiftFilter, setShiftFilter] = useState('');
+  const [searchParams] = useSearchParams();
+  const [shiftFilter, setShiftFilter] = useState(searchParams.get('shift') || '');
+  const [dayFilter, setDayFilter] = useState(searchParams.get('dayPattern') || '');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   // Which treatment-flow action popup is open: 'meds' | 'labs' | 'notes' | 'home' | null
   const [actionModal, setActionModal] = useState(null);
+  // Pre-dialysis mandatory gate: nurse/tech must open the checklist and the
+  // prescription before starting. Tracked per selected session id.
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [readChecklistFor, setReadChecklistFor] = useState(null);
+  const [readRxFor, setReadRxFor] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -879,6 +888,16 @@ export default function TreatmentWorkflow() {
           }
         }
 
+        // Day-pattern filter (mwf = Mon/Wed/Fri, tts = Tue/Thu/Sat).
+        if (dayFilter) {
+          const d = toValidDate(getSessionDate(session));
+          const wd = d ? d.getDay() : null;
+          const isMwf = [1, 3, 5].includes(wd);
+          const isTts = [2, 4, 6].includes(wd);
+          if (dayFilter === 'mwf' && !isMwf) return false;
+          if (dayFilter === 'tts' && !isTts) return false;
+        }
+
         if (
           fromBoundary &&
           sessionDate < fromBoundary
@@ -950,6 +969,7 @@ export default function TreatmentWorkflow() {
     search,
     sessions,
     shiftFilter,
+    dayFilter,
     status,
     view,
   ]);
@@ -1117,22 +1137,42 @@ export default function TreatmentWorkflow() {
               ))}
           </select>
 
-          <div>
+          <div className="sm:col-span-2 lg:col-span-2">
             <FieldLabel>Shift</FieldLabel>
-            <select
-              className="input"
-              value={shiftFilter}
-              onChange={(event) =>
-                setShiftFilter(event.target.value)
-              }
-            >
-              <option value="">All shifts</option>
-              {SHIFTS.map((sh) => (
-                <option key={sh.id} value={sh.id}>
-                  {sh.label} ({sh.time})
-                </option>
+            <div className="flex flex-wrap gap-1.5">
+              {[['', 'All'], ['1', '1st'], ['2', '2nd'], ['3', '3rd']].map(([val, lbl]) => (
+                <button
+                  key={val || 'all'}
+                  type="button"
+                  onClick={() => setShiftFilter(val)}
+                  title={val ? SHIFTS.find((s) => String(s.id) === val)?.time : 'All shifts'}
+                  className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                    shiftFilter === val ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {lbl}
+                </button>
               ))}
-            </select>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2 lg:col-span-2">
+            <FieldLabel>Days</FieldLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {[['', 'All'], ['mwf', 'MWF'], ['tts', 'TTS']].map(([val, lbl]) => (
+                <button
+                  key={val || 'alldays'}
+                  type="button"
+                  onClick={() => setDayFilter(val)}
+                  title={val === 'mwf' ? 'Mon / Wed / Fri' : val === 'tts' ? 'Tue / Thu / Sat' : 'All days'}
+                  className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                    dayFilter === val ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -1231,14 +1271,14 @@ export default function TreatmentWorkflow() {
 
                       <div className="rounded-xl bg-slate-50 p-2.5">
                         <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Station
+                          Shift
                         </span>
 
                         <span className="mt-0.5 block truncate text-xs font-bold text-slate-700">
-                          {session.chair?.code ||
-                            session.chair
-                              ?.chairNumber ||
-                            'Not assigned'}
+                          {(() => {
+                            const sh = session.schedule?.shift ?? shiftIdFromTime(session.schedule?.startTime);
+                            return sh ? shiftLabel(sh) : '—';
+                          })()}
                         </span>
                       </div>
                     </div>
@@ -1280,11 +1320,7 @@ export default function TreatmentWorkflow() {
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-500">
-                      MRN {selected.patient?.mrn || '—'} •
-                      Station{' '}
-                      {selected.chair?.code ||
-                        selected.chair?.chairNumber ||
-                        'Not assigned'}
+                      MRN {selected.patient?.mrn || '—'}
                     </p>
 
                     <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
@@ -1325,10 +1361,30 @@ export default function TreatmentWorkflow() {
                     <StatusBadge
                       status={selected.status}
                     />
-                    <DialysisPrescriptionViewer
-                      patientId={selected?.patient?._id || selected?.patient}
-                      buttonClassName="btn-primary"
-                    />
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="btn-light inline-flex items-center gap-2"
+                          onClick={() => setChecklistOpen(true)}
+                        >
+                          Cannulation Instruction
+                        </button>
+                        {readChecklistFor !== selected._id && ['nurse', 'technician'].includes(user?.role) && (
+                          <span className="pointer-events-none absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-red-500 ring-2 ring-white" />
+                        )}
+                      </div>
+                      <div className="relative">
+                        <DialysisPrescriptionViewer
+                          patientId={selected?.patient?._id || selected?.patient}
+                          buttonClassName="btn-primary"
+                          onViewed={() => setReadRxFor(selected._id)}
+                        />
+                        {readRxFor !== selected._id && ['nurse', 'technician'].includes(user?.role) && (
+                          <span className="pointer-events-none absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-red-500 ring-2 ring-white" />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1387,16 +1443,6 @@ export default function TreatmentWorkflow() {
                                 shiftIdFromTime(selected.schedule?.startTime)
                             )
                         )?.label || '—'}
-                      </b>
-                    </div>
-                    <div>
-                      <span className="block font-semibold text-slate-400">
-                        Station
-                      </span>
-                      <b className="mt-1 block">
-                        {selected.chair?.code ||
-                          selected.chair?.chairNumber ||
-                          '—'}
                       </b>
                     </div>
                     <div>
@@ -1511,26 +1557,46 @@ export default function TreatmentWorkflow() {
                   </button>
                 )}
 
-                {isCheckedIn && (
-                  <button
-                    type="button"
-                    className="btn-primary mt-4"
-                    disabled={actionLoading}
-                    onClick={() =>
-                      action(
-                        'Treatment started',
-                        () =>
-                          sessionApi.start(
-                            selected._id
+                {isCheckedIn && (() => {
+                  const mustReview = ['nurse', 'technician'].includes(user?.role);
+                  const readChecklist = readChecklistFor === selected._id;
+                  const readRx = readRxFor === selected._id;
+                  const ready = !mustReview || (readChecklist && readRx);
+                  return (
+                    <div className="mt-4">
+                      {mustReview && !ready && (
+                        <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                          Before starting dialysis, open and review both:
+                          <span className={`ml-1 ${readChecklist ? 'text-emerald-600' : 'text-amber-700'}`}>
+                            {readChecklist ? '✓ Cannulation Instruction' : '• Cannulation Instruction'}
+                          </span>
+                          <span className={`ml-2 ${readRx ? 'text-emerald-600' : 'text-amber-700'}`}>
+                            {readRx ? '✓ Prescription' : '• Prescription'}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={actionLoading || !ready}
+                        title={ready ? '' : 'Open the checklist and prescription first'}
+                        onClick={() =>
+                          action(
+                            'Treatment started',
+                            () =>
+                              sessionApi.start(
+                                selected._id
+                              )
                           )
-                      )
-                    }
-                  >
-                    {actionLoading
-                      ? 'Processing...'
-                      : 'Start Treatment'}
-                  </button>
-                )}
+                        }
+                      >
+                        {actionLoading
+                          ? 'Processing...'
+                          : 'Start Treatment'}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {isCompleted && (
                   <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
@@ -2092,10 +2158,6 @@ export default function TreatmentWorkflow() {
   </section>
                   </WorkflowActionModal>
 
-                 
-
-
-
                 </>
               )}
 
@@ -2121,13 +2183,6 @@ export default function TreatmentWorkflow() {
                       [
                         'MRN',
                         selected.patient?.mrn || '—',
-                      ],
-                      [
-                        'Station',
-                        selected.chair?.code ||
-                          selected.chair
-                            ?.chairNumber ||
-                          '—',
                       ],
                       [
                         'Start',
@@ -2384,6 +2439,17 @@ export default function TreatmentWorkflow() {
                   )}
                 </section>
               )}
+
+              {/* Mounted once for any selected session, regardless of status,
+                  so the Cannulation Instruction button works while checked_in. */}
+              <CannulationChecklistModal
+                open={checklistOpen}
+                onClose={() => setChecklistOpen(false)}
+                onAcknowledge={() => {
+                  setReadChecklistFor(selected._id);
+                  setChecklistOpen(false);
+                }}
+              />
             </div>
           )}
         </main>

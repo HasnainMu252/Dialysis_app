@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import DashboardStats from '../../components/dashboard/DashboardStats';
 import PatientBoard from '../../components/common/PatientBoard';
+import GeneralInstructionsGate from '../../components/common/GeneralInstructionsGate';
 
 export default function FrontDeskDashboard() {
   return (
     <div className="space-y-5">
+      <GeneralInstructionsGate gateKey="frontdesk" />
       <DashboardStats title="Front Desk Dashboard" subtitle="Register patients, send insurance to biller and create schedules only after station availability." />
       <div className="grid gap-4 md:grid-cols-3">
         <Link className="card p-5" to="/patients/new"><h3 className="font-bold">Register Patient</h3><p className="text-sm text-slate-500">After registration use Send to Biller for insurance verification.</p></Link>
