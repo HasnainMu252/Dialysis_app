@@ -7,6 +7,7 @@ import {
   deletePatient,
   findPatient,
   listPatients,
+  listPatientIds,
   sendToBiller,
   updatePatient,
   exportPatients,
@@ -63,6 +64,7 @@ router.post('/bulk-upload', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), uploadExce
 router.post('/cleanup-orphans', authorize(ROLES.ADMIN), cleanupOrphans);
 router.delete('/bulk-delete', authorize(...PERMISSIONS.patientDelete), bulkDeletePatients);
 router.get('/export', authorize(...PERMISSIONS.patientReadAll), exportPatients);
+router.get('/ids', authorize(...PERMISSIONS.patientReadAll), listPatientIds);
 router.get('/:idOrMrn/medications', authorize(...PERMISSIONS.patientReadAll), getPatientMedicationHistory);
 router.get('/:idOrMrn/monthly-summary', authorize(...PERMISSIONS.patientReadAll), getPatientMonthlySummary);
 router.get('/:idOrMrn/home-medications', authorize(...PERMISSIONS.patientReadAll), listHomeMedications);

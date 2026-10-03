@@ -121,11 +121,11 @@ export const createPatient = asyncHandler(async (req, res) => {
   return sendSuccess(res, { statusCode: 201, message: 'Patient created successfully', data: patient });
 });
 
-export const listPatients = asyncHandler(async (req, res) => {
-  const search = req.query.search?.trim();
-  const page = Math.max(Number(req.query.page || 1), 1);
-  const limit = Math.min(Math.max(Number(req.query.limit || 25), 1), 100);
-  const skip = (page - 1) * limit;
+// Build the Mongo filter shared by the list, the id-list and the export, so the
+// three stay perfectly in sync (what you see, what "select all" acts on, and
+// what you export are the same records).
+const buildPatientQuery = (query = {}) => {
+  const search = query.search?.trim();
 
   const q = search
     ? {
@@ -143,21 +143,45 @@ export const listPatients = asyncHandler(async (req, res) => {
     : {};
 
   // Filter by assigned shift (1/2/3) when provided.
-  if (req.query.shift && [1, 2, 3].includes(Number(req.query.shift))) {
-    q.shift = Number(req.query.shift);
+  if (query.shift && [1, 2, 3].includes(Number(query.shift))) {
+    q.shift = Number(query.shift);
   }
 
   // Filter by day pattern (mwf/tts) when provided.
-  if (req.query.dayPattern && ['mwf', 'tts'].includes(String(req.query.dayPattern).toLowerCase())) {
-    q.dayPattern = String(req.query.dayPattern).toLowerCase();
+  if (query.dayPattern && ['mwf', 'tts'].includes(String(query.dayPattern).toLowerCase())) {
+    q.dayPattern = String(query.dayPattern).toLowerCase();
   }
+
+  return q;
+};
+
+export const listPatients = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page || 1), 1);
+  const limit = Math.min(Math.max(Number(req.query.limit || 25), 1), 100);
+  const skip = (page - 1) * limit;
+
+  const q = buildPatientQuery(req.query);
 
   const [data, total] = await Promise.all([
     Patient.find(q).select(visiblePatientFields(req.user.role)).sort('-createdAt').skip(skip).limit(limit).lean({ virtuals: true }),
     Patient.countDocuments(q),
   ]);
 
+  // NOTE: sendSuccess spreads `meta` onto the top level of the body, so the
+  // client reads total/page/pages from the body root (and body.meta as a fallback).
   return sendSuccess(res, { data, meta: { count: data.length, total, page, pages: Math.ceil(total / limit) } });
+});
+
+/**
+ * GET /api/v1/patients/ids
+ * Lightweight id list for the current filter, with NO pagination — powers the
+ * "select all N patients" action so bulk delete can act on every match, not
+ * just the page on screen.
+ */
+export const listPatientIds = asyncHandler(async (req, res) => {
+  const q = buildPatientQuery(req.query);
+  const docs = await Patient.find(q).select('_id mrn').sort('-createdAt').lean();
+  return sendSuccess(res, { data: docs, meta: { total: docs.length } });
 });
 
 export const getPatient = asyncHandler(async (req, res) => {
