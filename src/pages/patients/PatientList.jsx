@@ -11,11 +11,12 @@ import { shiftLabel, dayPatternShort } from '../../constants';
 import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
-import Pagination, {
-  usePagedList,
-} from '../../components/common/Pagination';
+import Pagination from '../../components/common/Pagination';
 
 const patientKey = (patient) => patient._id || patient.id;
+
+// Records fetched per page from the server (server-side pagination).
+const PER_PAGE = 25;
 
 const exportRoles = [
   'admin',
@@ -374,62 +375,78 @@ export default function PatientList() {
   const allowExport = exportRoles.includes(user?.role);
 const [cleaningOrphans, setCleaningOrphans] = useState(false);
   const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(0);         // records matching the current filter
+  const [grandTotal, setGrandTotal] = useState(0); // all registered patients (unfiltered)
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
   const [search, setSearch] = useState('');
   const [searchParams] = useSearchParams();
   const [shiftFilter, setShiftFilter] = useState(searchParams.get('shift') || '');
   const [dayFilter, setDayFilter] = useState(searchParams.get('dayPattern') || '');
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState({});
+  const [selected, setSelected] = useState({});        // per-patient selection (persists across pages), keyed by id
+  const [selectAllMatching, setSelectAllMatching] = useState(false); // every patient in the filter is selected
+  const [matchingIds, setMatchingIds] = useState([]);  // ids backing selectAllMatching
+  const [selectingAll, setSelectingAll] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const fileInputRef = useRef(null);
 
-  const selectedPatients = useMemo(
-    () =>
-      items.filter(
-        (patient) => selected[patientKey(patient)]
-      ),
-    [items, selected]
+  // Ids explicitly selected via checkboxes (not the "select all matching" mode).
+  const selectedIds = useMemo(
+    () => Object.keys(selected).filter((key) => selected[key]),
+    [selected]
   );
 
-  const allSelected =
+  // Total selected for bulk actions: the whole filter, or the explicit picks.
+  const selectedCount = selectAllMatching ? total : selectedIds.length;
+
+  // Header checkbox reflects whether the current page is fully selected.
+  const pageAllSelected =
     items.length > 0 &&
-    selectedPatients.length === items.length;
+    items.every((patient) => selectAllMatching || selected[patientKey(patient)]);
 
-  const {
-    paged: pagedItems,
-    page,
-    setPage,
-    total: pagedTotal,
-    pageCount,
-  } = usePagedList(items, '', []);
+  // Build the query params for the current search + filters.
+  const buildParams = (pageArg, searchValue) => {
+    const params = { page: pageArg, limit: PER_PAGE };
+    const trimmed = (searchValue ?? '').trim();
+    if (trimmed) params.search = trimmed;
+    if (shiftFilter) params.shift = shiftFilter;
+    if (dayFilter) params.dayPattern = dayFilter;
+    return params;
+  };
 
-  const load = async (searchValue = search) => {
+  const load = async (pageArg = 1, searchValue = search, { keepSelection = false } = {}) => {
     setLoading(true);
 
     try {
-      const trimmedSearch = searchValue.trim();
-
-      const params = {};
-      if (trimmedSearch) params.search = trimmedSearch;
-      if (shiftFilter) params.shift = shiftFilter;
-      if (dayFilter) params.dayPattern = dayFilter;
+      const params = buildParams(pageArg, searchValue);
       const response = await patientApi.list(params);
 
-      const patients = response.data?.data || [];
+      // sendSuccess spreads meta onto the body root, so read total/pages from
+      // the root first and fall back to body.meta for safety.
+      const body = response.data || {};
+      const patients = body.data || [];
+      const totalCount = body.total ?? body.meta?.total ?? patients.length;
+      const pageCount = body.pages ?? body.meta?.pages ?? 1;
 
       setItems(patients);
+      setTotal(totalCount);
+      setPages(Math.max(1, pageCount));
+      setPage(pageArg);
 
-      setTotal(
-        response.data?.meta?.total ??
-          patients.length
-      );
+      // When viewing the unfiltered list, this total is also the grand total.
+      if (!params.search && !params.shift && !params.dayPattern) {
+        setGrandTotal(totalCount);
+      }
 
-      setSelected({});
-      setPage(1);
+      if (!keepSelection) {
+        setSelected({});
+        setSelectAllMatching(false);
+        setMatchingIds([]);
+      }
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -440,53 +457,126 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
     }
   };
 
+  const goToPage = (p) => {
+    if (p < 1 || p > pages || p === page) return;
+    // Keep any cross-page selection intact while navigating.
+    load(p, search, { keepSelection: true });
+  };
+
   useEffect(() => {
-    load('');
+    load(1, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-fetch when the shift filter changes (skip the very first mount).
+  // Keep the "Total patients" card accurate even when the list is filtered.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await patientApi.list({ page: 1, limit: 1 });
+        const body = res.data || {};
+        setGrandTotal(body.total ?? body.meta?.total ?? 0);
+      } catch {
+        /* non-fatal */
+      }
+    })();
+  }, []);
+
+  // Re-fetch when the shift/day filter changes (skip the very first mount).
   const didMountShift = useRef(false);
   useEffect(() => {
     if (!didMountShift.current) {
       didMountShift.current = true;
       return;
     }
-    load(search);
+    load(1, search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shiftFilter, dayFilter]);
 
   const handleSearch = (event) => {
     event.preventDefault();
-    load(search);
+    load(1, search);
   };
 
   const clearSearch = () => {
     setSearch('');
-    load('');
+    load(1, '');
   };
 
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelected({});
+  const clearSelection = () => {
+    setSelected({});
+    setSelectAllMatching(false);
+    setMatchingIds([]);
+  };
+
+  // Header checkbox: select / unselect every row on the CURRENT page.
+  const togglePage = () => {
+    if (selectAllMatching || pageAllSelected) {
+      clearSelection();
       return;
     }
 
-    const nextSelected = {};
-
-    items.forEach((patient) => {
-      nextSelected[patientKey(patient)] = true;
+    setSelected((current) => {
+      const next = { ...current };
+      items.forEach((patient) => {
+        next[patientKey(patient)] = true;
+      });
+      return next;
     });
-
-    setSelected(nextSelected);
   };
 
   const toggleOne = (patient) => {
     const key = patientKey(patient);
 
+    // Leaving "all matching" mode: materialise it to explicit picks, minus this one.
+    if (selectAllMatching) {
+      const next = {};
+      matchingIds.forEach((id) => {
+        next[id] = true;
+      });
+      next[key] = false;
+      setSelected(next);
+      setSelectAllMatching(false);
+      setMatchingIds([]);
+      return;
+    }
+
     setSelected((current) => ({
       ...current,
       [key]: !current[key],
     }));
+  };
+
+  // Toolbar: select EVERY patient matching the current filter (across all pages).
+  const toggleSelectAllMatching = async () => {
+    if (selectAllMatching) {
+      clearSelection();
+      return;
+    }
+
+    setSelectingAll(true);
+    try {
+      const params = {};
+      const trimmed = search.trim();
+      if (trimmed) params.search = trimmed;
+      if (shiftFilter) params.shift = shiftFilter;
+      if (dayFilter) params.dayPattern = dayFilter;
+
+      const res = await patientApi.listIds(params);
+      const ids = (res.data?.data || [])
+        .map((d) => d._id)
+        .filter(Boolean);
+
+      setMatchingIds(ids);
+      setSelectAllMatching(true);
+      setSelected({});
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          'Could not select all patients'
+      );
+    } finally {
+      setSelectingAll(false);
+    }
   };
 
   const exportExcel = async () => {
@@ -559,12 +649,16 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
       const response =
         await patientApi.bulkUpload(file);
 
+      // Surface the real counts so a successful import never looks like a no-op.
+      const d = response.data?.data || {};
+      const uploaded = d.uploaded ?? 0;
+      const failed = d.failed ?? 0;
       toast.success(
-        response.data?.message ||
-          'Bulk upload completed'
+        `Uploaded ${uploaded} patient${uploaded === 1 ? '' : 's'}` +
+          (failed ? ` · ${failed} skipped/failed` : '')
       );
 
-      await load(search);
+      await load(1, search);
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -594,14 +688,17 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
   };
 
   const bulkDelete = async () => {
-    if (!selectedPatients.length) {
+    // "Select all matching" sends every id in the filter; otherwise the explicit picks.
+    const ids = selectAllMatching ? matchingIds : selectedIds;
+
+    if (!ids.length) {
       toast.error('Select patients first');
       return;
     }
 
     const confirmed = window.confirm(
-      `Delete ${selectedPatients.length} selected patient${
-        selectedPatients.length > 1 ? 's' : ''
+      `Delete ${ids.length} selected patient${
+        ids.length > 1 ? 's' : ''
       }? This action cannot be undone.`
     );
 
@@ -610,28 +707,18 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
     setDeleting(true);
 
     try {
-      const ids = selectedPatients
-        .map((patient) => patient._id)
-        .filter(Boolean);
-
-      const mrns = selectedPatients
-        .map((patient) =>
-          String(patient.mrn || '').trim()
-        )
-        .filter(Boolean);
-
       const response =
-        await patientApi.bulkDelete({
-          ids,
-          mrns,
-        });
+        await patientApi.bulkDelete({ ids });
+
+      const deleted =
+        response.data?.data?.deletedCount ?? ids.length;
 
       toast.success(
-        response.data?.message ||
-          'Patients deleted successfully'
+        `Deleted ${deleted} patient${deleted === 1 ? '' : 's'}`
       );
 
-      await load(search);
+      clearSelection();
+      await load(1, search);
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -656,7 +743,9 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
       toast.success('Patient deleted successfully');
 
-      await load(search);
+      // Step back a page if we just removed the only row on it.
+      const nextPage = items.length === 1 && page > 1 ? page - 1 : page;
+      await load(nextPage, search, { keepSelection: true });
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -715,7 +804,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
               </p>
 
               <p className="mt-2 text-3xl font-black">
-                {loading ? '—' : total}
+                {grandTotal || (loading ? '—' : total)}
               </p>
 
               <p className="mt-1 text-xs text-blue-100">
@@ -737,7 +826,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
               </p>
 
               <p className="mt-2 text-3xl font-black text-slate-900">
-                {loading ? '—' : items.length}
+                {loading ? '—' : total}
               </p>
 
               <p className="mt-1 text-xs text-slate-500">
@@ -759,7 +848,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
               </p>
 
               <p className="mt-2 text-3xl font-black text-slate-900">
-                {selectedPatients.length}
+                {selectedCount}
               </p>
 
               <p className="mt-1 text-xs text-slate-500">
@@ -956,25 +1045,28 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
             accepts XLSX, XLS and CSV files.
           </p>
 
-          {allowEdit && items.length > 0 && (
+          {allowEdit && total > 0 && (
             <button
               type="button"
-              onClick={toggleAll}
-              className="inline-flex items-center gap-2 text-xs font-bold text-blue-700 transition hover:text-blue-900"
+              onClick={toggleSelectAllMatching}
+              disabled={selectingAll}
+              className="inline-flex items-center gap-2 text-xs font-bold text-blue-700 transition hover:text-blue-900 disabled:opacity-60"
             >
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded border ${
-                  allSelected
+                  selectAllMatching
                     ? 'border-blue-600 bg-blue-600 text-white'
                     : 'border-slate-300 bg-white'
                 }`}
               >
-                {allSelected && <CheckIcon />}
+                {selectAllMatching && <CheckIcon />}
               </span>
 
-              {allSelected
-                ? 'Unselect all patients'
-                : 'Select all patients'}
+              {selectingAll
+                ? 'Selecting…'
+                : selectAllMatching
+                ? `All ${total} patients selected — unselect`
+                : `Select all ${total} patients`}
             </button>
           )}
         </div>
@@ -982,7 +1074,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
       {/* Selected records action bar */}
       {allowEdit &&
-        selectedPatients.length > 0 && (
+        selectedCount > 0 && (
           <section className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
@@ -991,12 +1083,13 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
               <div>
                 <p className="font-bold text-slate-900">
-                  {selectedPatients.length}{' '}
+                  {selectedCount}{' '}
                   patient
-                  {selectedPatients.length > 1
+                  {selectedCount > 1
                     ? 's'
                     : ''}{' '}
                   selected
+                  {selectAllMatching ? ' (all pages)' : ''}
                 </p>
 
                 <p className="text-xs text-slate-500">
@@ -1009,7 +1102,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setSelected({})}
+                onClick={clearSelection}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Clear selection
@@ -1048,8 +1141,8 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
             <p className="mt-0.5 text-xs text-slate-500">
               {loading
                 ? 'Loading patient records...'
-                : `${pagedTotal} patient record${
-                    pagedTotal === 1 ? '' : 's'
+                : `${total} patient record${
+                    total === 1 ? '' : 's'
                   } found`}
             </p>
           </div>
@@ -1069,9 +1162,9 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
                   <th className="w-16 px-5 py-4">
                     <input
                       type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      aria-label="Select all patients"
+                      checked={pageAllSelected}
+                      onChange={togglePage}
+                      aria-label="Select all patients on this page"
                       className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
                   </th>
@@ -1105,10 +1198,10 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
                   allowEdit={allowEdit}
                 />
               ) : (
-                pagedItems.map((patient) => {
+                items.map((patient) => {
                   const key = patientKey(patient);
                   const isSelected =
-                    Boolean(selected[key]);
+                    selectAllMatching || Boolean(selected[key]);
 
                   return (
                     <tr
@@ -1288,10 +1381,10 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
           )}
 
         {!loading &&
-          pagedItems.map((patient) => {
+          items.map((patient) => {
             const key = patientKey(patient);
             const isSelected =
-              Boolean(selected[key]);
+              selectAllMatching || Boolean(selected[key]);
 
             return (
               <article
@@ -1450,9 +1543,10 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <Pagination
             page={page}
-            pageCount={pageCount}
-            total={pagedTotal}
-            onPage={setPage}
+            pageCount={pages}
+            total={total}
+            pageSize={PER_PAGE}
+            onPage={goToPage}
             label="patients"
           />
         </div>
