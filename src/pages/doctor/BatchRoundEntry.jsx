@@ -18,7 +18,7 @@ const buildDefaultForm = () => {
   const pr = emptyPhysicianRound();
   Object.entries(tpl.physicianRound || {}).forEach(([sk, fields]) => { pr[sk] = { ...pr[sk], ...fields }; });
   pr.laboratoryReview = {}; // Section D is not part of the monthly batch
-  return { physicianRound: pr, doctorComments: tpl.doctorComments || '', socialWorkerComments: '', dietitianComments: '', cqi: { patient: '', social: '', dietitian: '' }, templateUsed: tplName };
+  return { physicianRound: pr, doctorComments: tpl.doctorComments || '', socialWorkerComments: '', dietitianComments: '', templateUsed: tplName };
 };
 
 export default function BatchRoundEntry() {
@@ -79,7 +79,6 @@ export default function BatchRoundEntry() {
         doctorComments: form.doctorComments,
         socialWorkerComments: form.socialWorkerComments,
         dietitianComments: form.dietitianComments,
-        cqi: form.cqi,
         templateUsed: form.templateUsed,
       });
       toast.success(res.data?.message || 'Rounds created');

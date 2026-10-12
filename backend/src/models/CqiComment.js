@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 
 /**
  * CQI (Continuous Quality Improvement) comment for a patient.
- * Authored by a nurse, technician or social worker — each role keeps its OWN
- * comment per patient which that author can add and update. Usable during and
- * after dialysis, so it is patient-scoped (session is optional context).
+ * An append log: clinical roles who meet the patient (nurse, technician,
+ * social worker, doctor, dietitian) record entries over time; admin/DON review
+ * them monthly. Patient-scoped (session is optional context).
  */
 const cqiCommentSchema = new mongoose.Schema(
   {
@@ -26,8 +26,9 @@ const cqiCommentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One comment per (patient, author). Upserting keeps each author's single
-// editable comment rather than spawning duplicates.
-cqiCommentSchema.index({ patient: 1, author: 1 }, { unique: true });
+// CQI is an append log: each author may record many entries per patient over
+// time (reviewed monthly), so entries are indexed but NOT unique per author.
+cqiCommentSchema.index({ patient: 1, createdAt: -1 });
+cqiCommentSchema.index({ createdAt: -1 });
 
 export default mongoose.model('CqiComment', cqiCommentSchema);

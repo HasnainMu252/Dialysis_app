@@ -10,6 +10,9 @@ export const ROLES = {
   PATIENT: 'patient',
   INSURANCE_PERSON: 'insurance_person',
   DOCTOR: 'doctor',
+  DIETITIAN: 'dietitian',
+  DON: 'don',
+  BIOMED: 'biomed',
 };
 
 export const ROLE_LABELS = {
@@ -22,6 +25,9 @@ export const ROLE_LABELS = {
   patient: 'Patient',
   insurance_person: 'Insurance Person',
   doctor: 'Doctor',
+  dietitian: 'Dietitian',
+  don: 'Director of Nursing',
+  biomed: 'Biomed',
 };
 
 export const CHAIR_STATUS = ['available', 'reserved', 'in_use', 'cleaning', 'out_of_order', 'maintenance'];
@@ -42,6 +48,9 @@ export const roleHome = {
   insurance_person: '/insurance',
   patient: '/patient',
   doctor: '/doctor',
+  dietitian: '/dietitian',
+  don: '/don',
+  biomed: '/biomed',
 };
 
 export const statusColor = {

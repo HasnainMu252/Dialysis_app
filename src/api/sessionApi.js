@@ -2,6 +2,7 @@ import api from './axios';
 
 export const sessionApi = {
   list: (params) => api.get('/sessions', { params }),
+  get: (id) => api.get(`/sessions/${id}`),
   checkIn: (id) => api.patch(`/sessions/${id}/check-in`),
   start: (id) => api.patch(`/sessions/${id}/start`),
   vitals: (id, data) => api.post(`/sessions/${id}/vitals`, data),
@@ -9,6 +10,7 @@ export const sessionApi = {
   finalize: (id, data) => api.patch(`/sessions/${id}/finalize`, data),
   addNote: (id, data) => api.post(`/sessions/${id}/technician-notes`, data),
   deleteNote: (id, noteId) => api.delete(`/sessions/${id}/technician-notes/${noteId}`),
+  flowSheet: (id, data) => api.patch(`/sessions/${id}/flow-sheet`, data),
   complete: (id, data) => api.patch(`/sessions/${id}/complete`, data),
   uploadDocuments: (id, { files, name, notes }) => {
     const formData = new FormData();

@@ -44,6 +44,8 @@ import WorkflowActionModal from '../../components/workflow/WorkflowActionModal';
 import { Pill, FileText, ClipboardList, Home as HomeIcon } from 'lucide-react';
 import SessionNotesCard from '../../components/workflow/SessionNotesCard';
 import NurseReviewCard from '../../components/workflow/NurseReviewCard';
+import FlowSheetCard from '../../components/workflow/FlowSheetCard';
+import Portal from '../../components/common/Portal';
 import LabPanel from '../../components/common/LabPanel';
 import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
 import CannulationChecklistModal from '../../components/common/CannulationChecklistModal';
@@ -254,6 +256,7 @@ export default function TreatmentWorkflow() {
 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [flowSheetOpen, setFlowSheetOpen] = useState(false);
 
   const [vitals, setVitals] = useState({ ...BLANK_VITALS });
   const [soap, setSoap] = useState({ ...BLANK_SOAP });
@@ -681,6 +684,11 @@ export default function TreatmentWorkflow() {
   const saveSoap = () =>
     action('SOAP saved', () =>
       sessionApi.soap(selected._id, soap)
+    );
+
+  const saveFlowSheet = (data) =>
+    action('Flow sheet saved', () =>
+      sessionApi.flowSheet(selected._id, data)
     );
 
   const isTechnician = user?.role === 'technician';
@@ -1580,15 +1588,13 @@ export default function TreatmentWorkflow() {
                         className="btn-primary"
                         disabled={actionLoading || !ready}
                         title={ready ? '' : 'Open the checklist and prescription first'}
-                        onClick={() =>
-                          action(
+                        onClick={async () => {
+                          const ok = await action(
                             'Treatment started',
-                            () =>
-                              sessionApi.start(
-                                selected._id
-                              )
-                          )
-                        }
+                            () => sessionApi.start(selected._id)
+                          );
+                          if (ok) setFlowSheetOpen(true); // flow sheet pops up on start
+                        }}
                       >
                         {actionLoading
                           ? 'Processing...'
@@ -1881,6 +1887,16 @@ export default function TreatmentWorkflow() {
                     </section>
                   </div>
 
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setFlowSheetOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 hover:shadow-md"
+                    >
+                      <ClipboardList size={18} /> Open Flow Sheet
+                    </button>
+                  </div>
+
 {/* Treatment actions: buttons open focused popups (simpler view) */}
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {allowMeds && (
@@ -2162,6 +2178,9 @@ export default function TreatmentWorkflow() {
               )}
 
               {isCompleted && (
+                <>
+                <FlowSheetCard session={selected} canEdit={false} />
+
                 <section className="card space-y-5 p-5">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900">
@@ -2438,6 +2457,7 @@ export default function TreatmentWorkflow() {
                     </div>
                   )}
                 </section>
+                </>
               )}
 
               {/* Mounted once for any selected session, regardless of status,
@@ -2450,6 +2470,22 @@ export default function TreatmentWorkflow() {
                   setChecklistOpen(false);
                 }}
               />
+
+              {flowSheetOpen && (
+                <Portal>
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setFlowSheetOpen(false)}>
+                    <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-5 py-4">
+                        <h3 className="text-lg font-extrabold text-slate-900">Flow Sheet</h3>
+                        <button type="button" onClick={() => setFlowSheetOpen(false)} className="rounded-full px-2 text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                      </div>
+                      <div className="p-5">
+                        <FlowSheetCard session={selected} onSave={saveFlowSheet} saving={actionLoading} canEdit />
+                      </div>
+                    </div>
+                  </div>
+                </Portal>
+              )}
             </div>
           )}
         </main>

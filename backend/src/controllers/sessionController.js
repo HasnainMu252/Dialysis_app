@@ -70,6 +70,14 @@ export const listSessions = asyncHandler(async (req, res) => {
   });
 });
 
+/** GET /sessions/:id — single session with full populate (billing drill-down). */
+export const getSession = asyncHandler(async (req, res) => {
+  const session = await DialysisSession.findById(req.params.id)
+    .populate('patient chair schedule checkedInBy startedBy completedBy');
+  if (!session) throw new ApiError(404, 'Session not found');
+  res.json({ success: true, data: session });
+});
+
 export const checkIn = asyncHandler(async (req, res) => {
   const session = await DialysisSession.findById(req.params.id);
 
@@ -184,6 +192,40 @@ export const addVitals = asyncHandler(async (req, res) => {
     success: true,
     data,
   });
+});
+
+/**
+ * PATCH /sessions/:id/flow-sheet
+ * Technician/nurse flow sheet: machine checks, solution mixing, access list,
+ * access assessment. Upserts the single embedded flowSheet object.
+ */
+export const updateFlowSheet = asyncHandler(async (req, res) => {
+  const session = await DialysisSession.findById(req.params.id);
+  if (!session) throw new ApiError(404, 'Session not found');
+
+  const fs = session.flowSheet || {};
+  const { machineCheck, solutionMixing, accessList, accessAssessment, accessEvaluation } = req.body || {};
+
+  session.flowSheet = {
+    machineCheck: machineCheck ?? fs.machineCheck ?? {},
+    solutionMixing: solutionMixing ?? fs.solutionMixing ?? {},
+    accessList: Array.isArray(accessList) ? accessList : fs.accessList || [],
+    accessAssessment: accessAssessment ?? fs.accessAssessment ?? {},
+    accessEvaluation: accessEvaluation ?? fs.accessEvaluation ?? {},
+    updatedBy: req.user?._id,
+    updatedByName: req.user?.name,
+    updatedByRole: req.user?.role,
+    updatedAt: new Date(),
+  };
+
+  await session.save();
+
+  await writeAudit({ user: req.user, action: 'session.flow_sheet.update', entity: 'DialysisSession', entityId: session._id });
+
+  const data = await DialysisSession.findById(session._id)
+    .populate('patient chair schedule checkedInBy startedBy completedBy');
+
+  res.json({ success: true, data });
 });
 
 export const addSoap = asyncHandler(async (req, res) => {

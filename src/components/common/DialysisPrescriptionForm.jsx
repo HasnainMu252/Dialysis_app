@@ -32,8 +32,8 @@ function ChipGroup({ label, required, name, value, options, onChange }) {
               onClick={() => onChange(name, opt)}
               className={`rounded-md border px-3 py-1.5 text-sm font-semibold transition ${
                 active
-                  ? 'border-sky-700 bg-gradient-to-b from-sky-500 to-sky-700 text-white'
-                  : 'border-slate-300 bg-gradient-to-b from-white to-slate-100 text-slate-700 hover:border-slate-400'
+                  ? 'border-sky-700 bg-[#087E8B] text-white'
+                  : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
               }`}
             >
               {opt}

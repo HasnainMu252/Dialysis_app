@@ -21,7 +21,20 @@ function InfoGrid({ items }) {
   );
 }
 
-export default function PatientBioPanel({ patient, compact = false }) {
+const scheduleDateTime = (s) => {
+  if (!s) return null;
+  const d = dateOnly(s.date);
+  const t = s.startTime ? ` • ${s.startTime}${s.endTime ? `-${s.endTime}` : ''}` : '';
+  return d ? `${d}${t}` : null;
+};
+
+const sessionDate = (s) => {
+  if (!s) return null;
+  const raw = s.completedAt || s.startedAt || s.date;
+  return raw ? dateOnly(raw) : null;
+};
+
+export default function PatientBioPanel({ patient, compact = false, flowSheetAccess = '', nextDialysis = null, lastDialysis = null }) {
   if (!patient) return null;
 
   const insurance = patient.insurance || {};
@@ -31,10 +44,14 @@ export default function PatientBioPanel({ patient, compact = false }) {
     ? insurance.careCoordinationFlags.join(', ')
     : insurance.careCoordinationFlags;
 
+  const accessType = flowSheetAccess || medical.accessType || '';
+  const nextStr = scheduleDateTime(nextDialysis);
+  const lastStr = sessionDate(lastDialysis);
+
   return (
     <div className="space-y-4">
       <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-5 text-white">
+        <div className="bg-[#123B5D] p-5 text-white">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-xs uppercase tracking-widest text-blue-100">Patient Bio Data</p>
@@ -42,8 +59,25 @@ export default function PatientBioPanel({ patient, compact = false }) {
               <p className="text-sm text-blue-50">{patient.mrn} • {patient.phone || 'No phone'} • {patient.address || 'No address'}</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-[#087E8B] px-3 py-1 text-sm font-bold">Access: {accessType || 'Not set'}</span>
               <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">{patient.status || 'active'}</span>
               <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">Insurance: {insurance.approvalStatus || 'not_submitted'}</span>
+            </div>
+          </div>
+
+          {/* Prominent dialysis timing + access, pulled from the flow sheet / schedule. */}
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-white/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">Access Type (flow sheet)</p>
+              <p className="mt-0.5 font-bold">{accessType || '—'}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">Next Scheduled Dialysis</p>
+              <p className="mt-0.5 font-bold">{nextStr || 'None scheduled'}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">Last Dialysis</p>
+              <p className="mt-0.5 font-bold">{lastStr || 'No completed session'}</p>
             </div>
           </div>
         </div>
@@ -76,7 +110,7 @@ export default function PatientBioPanel({ patient, compact = false }) {
               items={[
                 { label: 'Diagnosis', value: medical.diagnosis },
                 { label: 'Dialysis Frequency', value: medical.dialysisFrequency },
-                { label: 'Access Type', value: medical.accessType },
+                { label: 'Access Type', value: accessType },
                 { label: 'Allergies', value: Array.isArray(medical.allergies) ? medical.allergies.join(', ') : medical.allergies },
                 { label: 'Medical Notes', value: medical.notes },
               ]}

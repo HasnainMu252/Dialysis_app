@@ -27,6 +27,146 @@ const medicalSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// A single vascular-access line (fistula or catheter). Age is derived from
+// placementDate when present; ageText is a manual fallback. Editable by nurse
+// and doctor (and admin) via the dedicated vascular-access endpoint.
+const accessLineSchema = new mongoose.Schema(
+  {
+    present: { type: Boolean, default: false },
+    type: { type: String, trim: true, default: '' },   // AV Fistula | AV Graft | Catheter ...
+    site: { type: String, trim: true, default: '' },    // e.g. Left Upper Arm
+    placementDate: Date,
+    ageText: { type: String, trim: true, default: '' }, // used when no placementDate
+    note: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
+const vascularAccessSchema = new mongoose.Schema(
+  {
+    fistula: { type: accessLineSchema, default: () => ({}) },
+    catheter: { type: accessLineSchema, default: () => ({}) },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, trim: true },
+    updatedAt: Date,
+  },
+  { _id: false }
+);
+
+// ---- Social worker (Phase C) ----
+const complaintSchema = new mongoose.Schema(
+  {
+    text: { type: String, trim: true, default: '' },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdByName: { type: String, trim: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+const socialWorkSchema = new mongoose.Schema(
+  {
+    evaluation: { type: String, trim: true, default: '' },
+    transportation: { type: String, trim: true, default: '' },
+    familyDynamics: { type: String, trim: true, default: '' },
+    transplant: { type: String, trim: true, default: '' },
+    complaints: [complaintSchema], // entered by social worker; visible to doctor
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, trim: true },
+    updatedAt: Date,
+  },
+  { _id: false }
+);
+
+// ---- Medical background bio tab (Phase C) ----
+const hospitalizationSchema = new mongoose.Schema(
+  {
+    date: Date,
+    reason: { type: String, trim: true, default: '' },
+    note: { type: String, trim: true, default: '' },
+  },
+  { _id: true }
+);
+
+const medicalBackgroundSchema = new mongoose.Schema(
+  {
+    // Internal
+    historyPhysical: { type: String, trim: true, default: '' },     // H&P, updated every 6 months
+    historyPhysicalUpdatedAt: Date,
+    vaccinations: {
+      hepatitis: { type: String, trim: true, default: '' },
+      tb: { type: String, trim: true, default: '' },
+      isolations: { type: String, trim: true, default: '' },
+      other: { type: String, trim: true, default: '' },
+    },
+    // External
+    hospitalizations: [hospitalizationSchema],
+    cardiacWorkup: { type: String, trim: true, default: '' },
+    cancerWorkup: { type: String, trim: true, default: '' },
+    other: { type: String, trim: true, default: '' },
+    // Kidney transplant information + correspondence from the transplant center
+    transplant: { type: String, trim: true, default: '' },
+    transplantCorrespondence: { type: String, trim: true, default: '' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, trim: true },
+    updatedAt: Date,
+  },
+  { _id: false }
+);
+
+// ---- Dietitian / nutrition (Phase C) ----
+const educationMaterialSchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true, default: '' },
+    note: { type: String, trim: true, default: '' },
+    givenAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+const nutritionSchema = new mongoose.Schema(
+  {
+    foodHurdles: { type: String, trim: true, default: '' },
+    educationMaterials: [educationMaterialSchema],
+    notes: { type: String, trim: true, default: '' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, trim: true },
+    updatedAt: Date,
+  },
+  { _id: false }
+);
+
+// Weekly Dialysis Evaluation — a config-driven checkbox template, logged over
+// time. `data` holds the checked items for that week.
+const weeklyEvaluationSchema = new mongoose.Schema(
+  {
+    date: { type: Date, default: Date.now },
+    data: { type: mongoose.Schema.Types.Mixed, default: {} },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    authorName: { type: String, trim: true },
+    authorRole: { type: String, trim: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+// Structured vaccination log — one entry per dose. Replaces the free-text
+// vaccination strings that used to live inside medicalBackground.
+const vaccinationSchema = new mongoose.Schema(
+  {
+    vaccineName: { type: String, trim: true, required: true },
+    vaccineType: { type: String, trim: true, default: '' }, // e.g. Hepatitis B, Influenza, COVID-19
+    route: { type: String, trim: true, default: 'Injection' }, // Injection | Oral
+    givenAt: { type: Date, default: Date.now }, // date & time administered
+    comments: { type: String, trim: true, default: '' },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    authorName: { type: String, trim: true },
+    authorRole: { type: String, trim: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const registrationSchema = new mongoose.Schema(
   {
     facility: { type: String, trim: true },
@@ -205,6 +345,18 @@ const patientSchema = new mongoose.Schema(
 
     emergencyContact: contactSchema,
     medicalHistory: medicalSchema,
+
+    // Fistula / catheter access with placement dates (age derived in the UI).
+    // Shown on the patient record and in the booked-session / treatment detail.
+    vascularAccess: { type: vascularAccessSchema, default: () => ({}) },
+
+    // Phase C additions.
+    socialWork: { type: socialWorkSchema, default: () => ({}) },
+    medicalBackground: { type: medicalBackgroundSchema, default: () => ({}) },
+    nutrition: { type: nutritionSchema, default: () => ({}) },
+    weeklyEvaluations: [weeklyEvaluationSchema],
+    vaccinations: [vaccinationSchema],
+
     registration: registrationSchema,
 
     insurance: insuranceSchema,

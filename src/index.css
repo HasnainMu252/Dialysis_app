@@ -1,20 +1,79 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Aegle fixed color palette (flat, no gradients)
+   Primary  Medical Navy   #123B5D
+   Secondary Clinical Teal #087E8B
+   Success  Green          #15803D
+   Warning  Amber          #B45309
+   Danger   Red            #B91C1C
+   Background Cool White    #F4F7FB
+   Card     White          #FFFFFF
+   Text     Slate          #1E293B
+   The blue/cyan/sky ramps are re-skinned to navy/teal so existing
+   `bg-blue-600`, `text-blue-700`, etc. pick up the brand automatically.
+   ============================================================ */
+@theme {
+  --color-navy: #123B5D;
+  --color-teal: #087E8B;
+  --color-brand-success: #15803D;
+  --color-brand-warning: #B45309;
+  --color-brand-danger: #B91C1C;
+
+  --color-blue-50:  #eaf0f6;
+  --color-blue-100: #d6e0ec;
+  --color-blue-200: #b0c4d9;
+  --color-blue-300: #7f9fbd;
+  --color-blue-400: #4a7399;
+  --color-blue-500: #1f4e79;
+  --color-blue-600: #123B5D;
+  --color-blue-700: #0f3151;
+  --color-blue-800: #0c2843;
+  --color-blue-900: #0a2036;
+
+  --color-cyan-50:  #e6f3f4;
+  --color-cyan-100: #cfe9eb;
+  --color-cyan-400: #2aa3ad;
+  --color-cyan-500: #087E8B;
+  --color-cyan-600: #0b6f7a;
+  --color-cyan-700: #0a5f69;
+
+  --color-sky-500: #087E8B;
+  --color-sky-600: #0b6f7a;
+  --color-sky-700: #0a5f69;
+
+  --color-emerald-600: #15803D;
+  --color-emerald-700: #126a33;
+  --color-green-600:   #15803D;
+  --color-green-700:   #126a33;
+  --color-amber-600:   #B45309;
+  --color-amber-700:   #96440a;
+  --color-red-600:     #B91C1C;
+  --color-red-700:     #991818;
+
+  --color-indigo-600: #123B5D;
+  --color-indigo-700: #0f3151;
+}
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #F4F7FB;
+  color: #1E293B;
 }
 
 .card {
-  @apply rounded-3xl border border-white/70 bg-white/90 shadow-lg shadow-slate-200/70 backdrop-blur;
+  @apply rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-200/70;
 }
 
 .btn-primary {
-  @apply rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 font-bold text-white shadow-md shadow-blue-200 transition hover:from-blue-700 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply rounded-xl bg-[#123B5D] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0f3151] disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.btn-teal {
+  @apply rounded-xl bg-[#087E8B] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b6f7a] disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 .btn-light {
@@ -22,11 +81,11 @@ body {
 }
 
 .btn-danger {
-  @apply rounded-xl bg-red-600 px-4 py-2 font-bold text-white shadow-md shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply rounded-xl bg-[#B91C1C] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#991818] disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 .input {
-  @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+  @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#123B5D] focus:ring-4 focus:ring-[#123B5D]/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
 }
 
 .label {
@@ -41,6 +100,25 @@ body {
   @apply overflow-x-auto rounded-2xl border border-slate-100;
 }
 
+/* ---- Skeleton loading ---- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #e8edf3;
+  border-radius: 0.5rem;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: skeletonShimmer 1.3s infinite;
+}
+@keyframes skeletonShimmer {
+  100% { transform: translateX(100%); }
+}
+
 /* Mobile smoothness + drawer animation */
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body { overflow-x: hidden; }
@@ -50,15 +128,12 @@ body { overflow-x: hidden; }
   to   { transform: translateX(0); opacity: 1; }
 }
 
-/* Comfortable tap targets on touch devices */
 @media (max-width: 1024px) {
   button, a { -webkit-tap-highlight-color: transparent; }
 }
 
-/* Tables scroll horizontally instead of breaking the layout on small screens */
 .table-wrap, .overflow-x-auto { -webkit-overflow-scrolling: touch; }
 
-/* Reduce the overall scale on phones so the UI isn't "zoomed in" after deploy */
 @media (max-width: 640px) {
   html { font-size: 14px; }
 }

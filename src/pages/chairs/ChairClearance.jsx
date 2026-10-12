@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { chairApi } from '../../api/chairApi';
-import { chairClearanceApi } from '../../api/chairClearanceApi';
+import { chairClearanceApi, MAINTENANCE_TYPES } from '../../api/chairClearanceApi';
 import { scheduleApi } from '../../api/scheduleApi';
 import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
@@ -48,6 +48,7 @@ export default function ChairClearance() {
 
   const [chairCode, setChairCode] = useState('');
   const [status, setStatus] = useState('available');
+  const [maintenanceType, setMaintenanceType] = useState('Routine clean');
   const [notes, setNotes] = useState('Station cleaned and ready for next patient.');
   const [checklist, setChecklist] = useState(makeChecklist('available'));
 
@@ -80,18 +81,18 @@ export default function ChairClearance() {
   const changeStatus = (value) => {
     setStatus(value);
     setChecklist(makeChecklist(value));
-    if (value === 'maintenance') setNotes('Issue found. Station moved to maintenance.');
-    if (value === 'available') setNotes('Station cleaned and ready for next patient.');
+    if (value === 'maintenance') { setNotes('Issue found. Station moved to maintenance.'); setMaintenanceType('Issue report'); }
+    if (value === 'available') { setNotes('Station cleaned and ready for next patient.'); setMaintenanceType('Routine clean'); }
     if (value === 'cleaning') setNotes('Station cleaning in progress.');
-    if (value === 'out_of_order') setNotes('Station not safe for treatment.');
+    if (value === 'out_of_order') { setNotes('Station not safe for treatment.'); setMaintenanceType('Issue report'); }
   };
 
   const submit = async (event) => {
     event.preventDefault();
     if (!chairCode) return toast.error('Select chair');
     try {
-      await chairClearanceApi.create(chairCode, { status, notes, checklist });
-      toast.success('Station clearance saved');
+      await chairClearanceApi.create(chairCode, { status, maintenanceType, notes, checklist });
+      toast.success('Submitted to Biomed');
       load();
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to save chair clearance');
@@ -164,15 +165,24 @@ export default function ChairClearance() {
       </section>
 
       <form onSubmit={submit} className="card space-y-4 p-5">
-        <h2 className="text-lg font-extrabold text-slate-900">Clear a chair</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">Machine maintenance report</h2>
+          <p className="text-sm text-slate-500">Record maintenance for a specific machine/station. The report is sent to the Biomed team, who see it on their dashboard and mark it handled.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
           <div>
-            <label className="label">Station</label>
+            <label className="label">Station / Machine</label>
             <select className="input" value={chairCode} onChange={(e) => setChairCode(e.target.value)}>
               <option value="">Select Station</option>
               {chairs.map((chair) => (
                 <option key={chair._id} value={chairKey(chair)}>{chairKey(chair)} - {chair.status}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Maintenance Type</label>
+            <select className="input" value={maintenanceType} onChange={(e) => setMaintenanceType(e.target.value)}>
+              {MAINTENANCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
@@ -185,7 +195,7 @@ export default function ChairClearance() {
             </select>
           </div>
           <div>
-            <label className="label">Notes</label>
+            <label className="label">Notes / issue detail</label>
             <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </div>
@@ -199,7 +209,7 @@ export default function ChairClearance() {
           ))}
         </div>
 
-        <button className="btn-primary">Save Station Clearance</button>
+        <button className="btn-primary">Submit to Biomed</button>
       </form>
 
       <section className="card p-5">
@@ -209,10 +219,19 @@ export default function ChairClearance() {
             <div className="rounded-xl border p-3 text-sm" key={item._id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <b>Station {item.chairCode}</b>
-                <StatusBadge status={item.status} />
+                <div className="flex items-center gap-1.5">
+                  {item.maintenanceType && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">{item.maintenanceType}</span>}
+                  <StatusBadge status={item.status} />
+                </div>
               </div>
               <p className="text-slate-600">{item.notes}</p>
-              <p className="text-xs text-slate-400">{item.createdAt?.slice(0, 10)}</p>
+              <p className="text-xs text-slate-400">
+                {item.createdAt?.slice(0, 10)}
+                {item.clearedByName ? ` • by ${item.clearedByName}${item.clearedByRole ? ` (${String(item.clearedByRole).replace('_', ' ')})` : ''}` : ''}
+                {item.resolved
+                  ? ` • ✓ handled by Biomed${item.resolvedByName ? ` (${item.resolvedByName})` : ''}`
+                  : ' • awaiting Biomed'}
+              </p>
             </div>
           ))}
         </div>

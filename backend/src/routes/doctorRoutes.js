@@ -25,7 +25,7 @@ router.use(protect);
 // Flat checkup list + batch operations (declared before /patients to avoid clashes)
 router.get(
   '/checkups',
-  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER),
+  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER, ROLES.DON),
   listAllCheckups
 );
 
@@ -43,7 +43,7 @@ router.patch(
 
 router.patch(
   '/checkups/:id/approval',
-  authorize(ROLES.ADMIN, ROLES.BILLER),
+  authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DON),
   updateCheckupApproval
 );
 
@@ -67,13 +67,13 @@ router.post(
 
 router.get(
   '/patients/:patientId/checkups',
-  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER, ROLES.NURSE),
+  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER, ROLES.NURSE, ROLES.DON),
   getPatientDoctorCheckups
 );
 
 router.get(
   '/patients/:patientId/monthly-status',
-  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER, ROLES.NURSE),
+  authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER, ROLES.NURSE, ROLES.DON),
   getMonthlyRoundStatus
 );
 

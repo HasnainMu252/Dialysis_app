@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import Chair from '../models/Chair.js';
 import { writeAudit } from '../utils/audit.js';
+import { notifyStationStatus } from '../services/notificationService.js';
 
 const findChairByIdOrNumber = async (idOrNumber) => {
   const value = idOrNumber.trim().toUpperCase();

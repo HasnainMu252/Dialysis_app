@@ -14,11 +14,11 @@ router.use(protect);
 router
   .route('/')
   .get(listChairs)
-  .post(authorize(ROLES.ADMIN, ROLES.FRONT_DESK,ROLES.NURSE), createChair);
+  .post(authorize(ROLES.ADMIN, ROLES.FRONT_DESK, ROLES.NURSE, ROLES.BIOMED), createChair);
 
 router.patch(
   '/:idOrNumber/status',
-  authorize(ROLES.ADMIN, ROLES.FRONT_DESK, ROLES.TECHNICIAN, ROLES.NURSE),
+  authorize(ROLES.ADMIN, ROLES.FRONT_DESK, ROLES.TECHNICIAN, ROLES.NURSE, ROLES.BIOMED),
   updateChairStatus
 );
 

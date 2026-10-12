@@ -4,8 +4,10 @@ import { medicationApi } from '../../api/medicationApi';
 import { homeMedicationApi } from '../../api/homeMedicationApi';
 import NoteAuthor from './NoteAuthor';
 import Portal from './Portal';
+import { accessAge } from '../../utils/accessAge';
 
 const ts = (d) => (d ? new Date(d).toLocaleString() : '—');
+const hasAny = (obj) => obj && Object.values(obj).some((v) => v !== '' && v !== false && v != null);
 
 export default function SessionDetailModal({ session, onClose }) {
   const [meds, setMeds] = useState([]);
@@ -32,6 +34,12 @@ export default function SessionDetailModal({ session, onClose }) {
   const soaps = session.soapNotes || [];
   const notes = session.technicianNotes || [];
   const docs = session.documents || [];
+  const va = session.patient?.vascularAccess || {};
+  const fs = session.flowSheet || {};
+  const mc = fs.machineCheck || {};
+  const aa = fs.accessAssessment || {};
+  const accessList = fs.accessList || [];
+  const hasFlowSheet = hasAny(mc) || hasAny(aa) || accessList.length > 0 || hasAny(fs.solutionMixing);
 
   return (
     <Portal>
@@ -55,6 +63,16 @@ export default function SessionDetailModal({ session, onClose }) {
               <p><b>Completed:</b> {ts(session.completedAt)}</p>
             </div>
           </div>
+
+          {(hasAny(va.fistula) || hasAny(va.catheter)) && (
+            <div>
+              <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-blue-800">Vascular Access</h4>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <p><b>Fistula:</b> {va.fistula?.type || '—'}{va.fistula?.site ? ` · ${va.fistula.site}` : ''} · Age {accessAge(va.fistula?.placementDate, va.fistula?.ageText)}</p>
+                <p><b>Catheter:</b> {va.catheter?.type || '—'}{va.catheter?.site ? ` · ${va.catheter.site}` : ''} · Age {accessAge(va.catheter?.placementDate, va.catheter?.ageText)}</p>
+              </div>
+            </div>
+          )}
 
           <div>
             <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-blue-800">Medications given ({meds.length})</h4>
@@ -115,6 +133,27 @@ export default function SessionDetailModal({ session, onClose }) {
                     <NoteAuthor name={n.authorName} role={n.authorRole} at={n.createdAt} />
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {hasFlowSheet && (
+            <div>
+              <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-blue-800">Flow Sheet</h4>
+              <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-slate-600">
+                {hasAny(mc) && (
+                  <p>
+                    <b>Machine:</b> {mc.machineBrand || '—'}{mc.machineNo ? ` #${mc.machineNo}` : ''} · Cond {mc.conductivityMachine || '—'}/{mc.conductivityMeter || '—'} · Temp {mc.temperature || '—'} · pH {mc.ph || '—'}
+                    {(mc.alarmTest || mc.airDetector || mc.pressureTestMachine || mc.pressureCheckDialyzer) ? ` · Checks: Alarm ${mc.alarmTest || '—'}, Air ${mc.airDetector || '—'}, Press(M) ${mc.pressureTestMachine || '—'}, Press(D) ${mc.pressureCheckDialyzer || '—'}` : ''}
+                  </p>
+                )}
+                {accessList.map((a, i) => (
+                  <p key={a._id || i}><b>Access:</b> {a.type || '—'}{a.site ? ` · ${a.site}` : ''}{a.bloodFlowRate ? ` · BFR ${a.bloodFlowRate}` : ''}{a.inUse ? ' · in use' : ''}</p>
+                ))}
+                {hasAny(aa) && (
+                  <p><b>Assessment:</b> Bruit {aa.bruit || '—'} · Thrill {aa.thrill || '—'} · Swelling {aa.extremitySwelling || '—'} · Soft-tissue infection {aa.softTissueInfection || '—'}</p>
+                )}
+                {fs.updatedByName && <p className="text-xs text-slate-400">Recorded by {fs.updatedByName}{fs.updatedByRole ? ` (${fs.updatedByRole})` : ''}</p>}
               </div>
             </div>
           )}

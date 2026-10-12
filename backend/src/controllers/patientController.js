@@ -213,6 +213,230 @@ export const updatePatient = asyncHandler(async (req, res) => {
   return sendSuccess(res, { message: 'Patient updated successfully', data: patient });
 });
 
+/**
+ * PATCH /patients/:id/vascular-access
+ * Fistula / catheter access. Editable by nurse and doctor (and admin) even
+ * though they cannot edit the rest of the patient record.
+ */
+export const updateVascularAccess = asyncHandler(async (req, res) => {
+  const { fistula = {}, catheter = {} } = req.body || {};
+
+  const clean = (line = {}) => ({
+    present: line.present === true || line.present === 'true',
+    type: String(line.type || '').trim(),
+    site: String(line.site || '').trim(),
+    placementDate: cleanDate(line.placementDate),
+    ageText: String(line.ageText || '').trim(),
+    note: String(line.note || '').trim(),
+  });
+
+  const patient = await Patient.findOneAndUpdate(
+    getPatientQuery(req.params.id),
+    {
+      vascularAccess: {
+        fistula: clean(fistula),
+        catheter: clean(catheter),
+        updatedBy: req.user?._id,
+        updatedByName: req.user?.name,
+        updatedAt: new Date(),
+      },
+    },
+    { new: true, runValidators: true, projection: visiblePatientFields(req.user.role) }
+  );
+
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  await writeAudit({ user: req.user, action: 'patient.vascular_access.update', entity: 'Patient', entityId: patient._id });
+
+  return sendSuccess(res, { message: 'Vascular access updated', data: patient });
+});
+
+/**
+ * PATCH /patients/:id/social-work   (social worker, admin)
+ * Evaluation, transportation, family dynamics, transplant info, and complaints
+ * (complaints are entered by the social worker and read by the doctor).
+ */
+export const updateSocialWork = asyncHandler(async (req, res) => {
+  const { evaluation = '', transportation = '', familyDynamics = '', transplant = '', complaints = [] } = req.body || {};
+
+  const cleanComplaints = (Array.isArray(complaints) ? complaints : [])
+    .map((c) => ({
+      text: String(c.text || '').trim(),
+      createdByName: c.createdByName || req.user?.name,
+      createdBy: c.createdBy || req.user?._id,
+      createdAt: c.createdAt || new Date(),
+    }))
+    .filter((c) => c.text);
+
+  const patient = await Patient.findOneAndUpdate(
+    getPatientQuery(req.params.id),
+    {
+      socialWork: {
+        evaluation: String(evaluation).trim(),
+        transportation: String(transportation).trim(),
+        familyDynamics: String(familyDynamics).trim(),
+        transplant: String(transplant).trim(),
+        complaints: cleanComplaints,
+        updatedBy: req.user?._id,
+        updatedByName: req.user?.name,
+        updatedAt: new Date(),
+      },
+    },
+    { new: true, runValidators: true, projection: visiblePatientFields(req.user.role) }
+  );
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  await writeAudit({ user: req.user, action: 'patient.social_work.update', entity: 'Patient', entityId: patient._id });
+  return sendSuccess(res, { message: 'Social work info updated', data: patient });
+});
+
+/**
+ * PATCH /patients/:id/medical-background   (social worker, nurse, doctor, admin)
+ * Vaccinations (Hepatitis/TB/isolations), hospitalizations, cardiac/cancer workup.
+ */
+export const updateMedicalBackground = asyncHandler(async (req, res) => {
+  const {
+    historyPhysical = '',
+    historyPhysicalUpdatedAt,
+    vaccinations = {},
+    hospitalizations = [],
+    cardiacWorkup = '',
+    cancerWorkup = '',
+    other = '',
+    transplant = '',
+    transplantCorrespondence = '',
+  } = req.body || {};
+
+  const patient = await Patient.findOneAndUpdate(
+    getPatientQuery(req.params.id),
+    {
+      medicalBackground: {
+        historyPhysical: String(historyPhysical).trim(),
+        historyPhysicalUpdatedAt: cleanDate(historyPhysicalUpdatedAt),
+        vaccinations: {
+          hepatitis: String(vaccinations.hepatitis || '').trim(),
+          tb: String(vaccinations.tb || '').trim(),
+          isolations: String(vaccinations.isolations || '').trim(),
+          other: String(vaccinations.other || '').trim(),
+        },
+        hospitalizations: (Array.isArray(hospitalizations) ? hospitalizations : [])
+          .map((h) => ({ date: cleanDate(h.date), reason: String(h.reason || '').trim(), note: String(h.note || '').trim() }))
+          .filter((h) => h.date || h.reason || h.note),
+        cardiacWorkup: String(cardiacWorkup).trim(),
+        cancerWorkup: String(cancerWorkup).trim(),
+        other: String(other).trim(),
+        transplant: String(transplant).trim(),
+        transplantCorrespondence: String(transplantCorrespondence).trim(),
+        updatedBy: req.user?._id,
+        updatedByName: req.user?.name,
+        updatedAt: new Date(),
+      },
+    },
+    { new: true, runValidators: true, projection: visiblePatientFields(req.user.role) }
+  );
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  await writeAudit({ user: req.user, action: 'patient.medical_background.update', entity: 'Patient', entityId: patient._id });
+  return sendSuccess(res, { message: 'Medical background updated', data: patient });
+});
+
+/**
+ * PATCH /patients/:id/nutrition   (dietitian, admin)
+ * Food hurdles, education materials, nutrition notes.
+ */
+export const updateNutrition = asyncHandler(async (req, res) => {
+  const { foodHurdles = '', educationMaterials = [], notes = '' } = req.body || {};
+
+  const patient = await Patient.findOneAndUpdate(
+    getPatientQuery(req.params.id),
+    {
+      nutrition: {
+        foodHurdles: String(foodHurdles).trim(),
+        educationMaterials: (Array.isArray(educationMaterials) ? educationMaterials : [])
+          .map((e) => ({ title: String(e.title || '').trim(), note: String(e.note || '').trim(), givenAt: e.givenAt || new Date() }))
+          .filter((e) => e.title || e.note),
+        notes: String(notes).trim(),
+        updatedBy: req.user?._id,
+        updatedByName: req.user?.name,
+        updatedAt: new Date(),
+      },
+    },
+    { new: true, runValidators: true, projection: visiblePatientFields(req.user.role) }
+  );
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  await writeAudit({ user: req.user, action: 'patient.nutrition.update', entity: 'Patient', entityId: patient._id });
+  return sendSuccess(res, { message: 'Nutrition info updated', data: patient });
+});
+
+/**
+ * POST /patients/:id/weekly-evaluation   (doctor, nurse, admin)
+ * Append a Weekly Dialysis Evaluation (config-driven checkbox template).
+ */
+export const addWeeklyEvaluation = asyncHandler(async (req, res) => {
+  const { date, data = {} } = req.body || {};
+  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  patient.weeklyEvaluations.push({
+    date: cleanDate(date) || new Date(),
+    data: data && typeof data === 'object' ? data : {},
+    author: req.user?._id,
+    authorName: req.user?.name,
+    authorRole: req.user?.role,
+  });
+  await patient.save();
+
+  await writeAudit({ user: req.user, action: 'patient.weekly_evaluation.add', entity: 'Patient', entityId: patient._id });
+
+  const updated = await Patient.findById(patient._id).select(visiblePatientFields(req.user.role)).lean({ virtuals: true });
+  return sendSuccess(res, { message: 'Weekly evaluation saved', data: updated });
+});
+
+export const addVaccination = asyncHandler(async (req, res) => {
+  const { vaccineName, vaccineType = '', route = 'Injection', givenAt, comments = '' } = req.body || {};
+  if (!String(vaccineName || '').trim()) throw new ApiError(400, 'Vaccine name is required');
+
+  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  patient.vaccinations.push({
+    vaccineName: String(vaccineName).trim(),
+    vaccineType: String(vaccineType).trim(),
+    route: ['Injection', 'Oral'].includes(route) ? route : 'Injection',
+    givenAt: cleanDate(givenAt) || new Date(),
+    comments: String(comments).trim(),
+    author: req.user?._id,
+    authorName: req.user?.name,
+    authorRole: req.user?.role,
+  });
+  await patient.save();
+
+  await writeAudit({ user: req.user, action: 'patient.vaccination.add', entity: 'Patient', entityId: patient._id });
+
+  const updated = await Patient.findById(patient._id).select(visiblePatientFields(req.user.role)).lean({ virtuals: true });
+  return sendSuccess(res, { message: 'Vaccination recorded', data: updated });
+});
+
+export const deleteVaccination = asyncHandler(async (req, res) => {
+  const patient = await Patient.findOne(getPatientQuery(req.params.id));
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  const entry = patient.vaccinations.id(req.params.vaccinationId);
+  if (!entry) throw new ApiError(404, 'Vaccination entry not found');
+
+  const isOwner = String(entry.author) === String(req.user?._id);
+  if (!isOwner && req.user?.role !== 'admin') throw new ApiError(403, 'You can only delete your own vaccination entry');
+
+  entry.deleteOne();
+  await patient.save();
+
+  await writeAudit({ user: req.user, action: 'patient.vaccination.delete', entity: 'Patient', entityId: patient._id });
+
+  const updated = await Patient.findById(patient._id).select(visiblePatientFields(req.user.role)).lean({ virtuals: true });
+  return sendSuccess(res, { message: 'Vaccination deleted', data: updated });
+});
+
 export const sendToBiller = asyncHandler(async (req, res) => {
   const patient = await Patient.findOneAndUpdate(
     getPatientQuery(req.params.id),

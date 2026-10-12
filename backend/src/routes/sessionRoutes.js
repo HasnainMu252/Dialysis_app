@@ -10,6 +10,8 @@ import {
   addTechnicianNote,
   finalizeSession,
   deleteTechnicianNote,
+  updateFlowSheet,
+  getSession,
 } from '../controllers/sessionController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import uploadSessionDocument from '../middleware/uploadSessionDocument.js';
@@ -23,11 +25,13 @@ const clinical = authorize(ROLES.NURSE, ROLES.ADMIN, ROLES.TECHNICIAN);
 const noteAuthors = authorize(ROLES.NURSE, ROLES.ADMIN, ROLES.TECHNICIAN, ROLES.DOCTOR);
 
 router.get('/', listSessions);
+router.get('/:id', getSession);
 router.patch('/:id/check-in', clinical, checkIn);
 router.patch('/:id/start', clinical, startSession);
 router.post('/:id/vitals', clinical, addVitals);
 router.post('/:id/soap', clinical, addSoap);
 router.post('/:id/documents', clinical, uploadSessionDocument.array('documents', 10), uploadSessionDocuments);
+router.patch('/:id/flow-sheet', clinical, updateFlowSheet);
 router.patch('/:id/complete', clinical, completeSession);
 // Nurse (or admin) signs off a technician-submitted session and closes it.
 router.patch('/:id/finalize', authorize(ROLES.NURSE, ROLES.ADMIN), finalizeSession);

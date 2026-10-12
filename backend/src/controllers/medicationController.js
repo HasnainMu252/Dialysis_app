@@ -401,6 +401,7 @@ export const getMedicationBilling = asyncHandler(async (req, res) => {
 
   const rows = meds.map((m) => ({
     id: m._id,
+    sessionId: m.session || null, // for session drill-down
     patientName: patientName(m.patient),
     mrn: m.patient?.mrn || m.patientMrn,
     medication: m.name,

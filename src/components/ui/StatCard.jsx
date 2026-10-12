@@ -12,13 +12,13 @@ export default function StatCard({ title, value, icon: Icon }) {
         </div>
 
         {Icon && (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-200 transition-transform duration-200 group-hover:scale-110 sm:h-14 sm:w-14">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#087E8B] text-white shadow-lg shadow-blue-200 transition-transform duration-200 group-hover:scale-110 sm:h-14 sm:w-14">
             <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         )}
       </div>
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500" />
+        <div className="h-full w-2/3 rounded-full bg-[#123B5D]" />
       </div>
     </div>
   );

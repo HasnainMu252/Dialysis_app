@@ -18,11 +18,11 @@ router.use(protect);
 // Read: any authenticated role (technicians are view-only).
 router.get('/', listMedications);
 // Full lifecycle trail — biller can watch when meds were added / stopped / removed.
-router.get('/history', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.NURSE), getMedicationHistory);
+router.get('/history', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.NURSE, ROLES.DON), getMedicationHistory);
 
-router.get('/report', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR), getMedicationReport);
-router.get('/usage', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR), getMedicationUsage);
-router.get('/billing', authorize(ROLES.ADMIN, ROLES.BILLER), getMedicationBilling);
+router.get('/report', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.DON), getMedicationReport);
+router.get('/usage', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.DON), getMedicationUsage);
+router.get('/billing', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DON), getMedicationBilling);
 
 // Write: NURSE / DOCTOR / ADMIN only. Technician has NO medication write access.
 // Medications are add + delete (soft) only — no in-place edit.

@@ -44,7 +44,13 @@ export const canForceNotify = (role) => role === ROLES.ADMIN;
 /* Doctors (and admins) may create SOAP rounds and upload multiple documents. */
 export const canAddDoctorRound = (role) => [ROLES.ADMIN, ROLES.DOCTOR].includes(role);
 
-export const canViewReports = (role) => [ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR].includes(role);
+export const canViewReports = (role) => [ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.DON].includes(role);
+
+/* Biomed (and admin) manage the machine registry. */
+export const canManageMachines = (role) => [ROLES.ADMIN, ROLES.BIOMED].includes(role);
+
+/* Admin and DON review all CQI comments month-end. */
+export const canReviewCqi = (role) => [ROLES.ADMIN, ROLES.DON].includes(role);
 
 /* Home medications: Doctor, Nurse and Admin may add/delete.
  * Technicians are VIEW-ONLY for all medications (dialysis + home). */
@@ -78,14 +84,19 @@ export const PATIENT_TAB_LABELS = {
   'lab reports': 'Lab Reports',
   'dialysis prescription': 'Dialysis Prescription',
   'billing history': 'Billing History',
+  'social work': 'Social Work',
+  'medical background': 'Medical Background',
+  vaccination: 'Vaccination',
+  nutrition: 'Nutrition',
+  'weekly evaluation': 'Weekly Evaluation',
 };
 
 /* Full patient-detail tab set (matches Admin). Roles pointed here see everything.
  * NOTE: "Treatment History" was removed — the Sessions tab is the single source
  * of treatment + session history. Claims has been removed app-wide. */
 const FULL_TABS = [
-  'overview', 'full profile', 'medical history', 'insurance form', 'documents',
-  'schedules', 'sessions', 'doctor rounds', 'cqi', 'cqi comments',
+  'overview', 'full profile', 'medical history', 'medical background', 'vaccination', 'insurance form', 'documents',
+  'schedules', 'sessions', 'doctor rounds', 'cqi', 'social work', 'nutrition', 'weekly evaluation',
   'medication history', 'home medication', 'lab reports', 'dialysis prescription', 'billing history',
 ];
 
@@ -109,11 +120,22 @@ const TABS_BY_ROLE = {
     'schedules', 'sessions', 'medication history', 'billing history',
   ],
   [ROLES.DOCTOR]: [
-    'overview', 'full profile', 'medical history', 'doctor rounds',
-    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication', 'cqi comments', 'lab reports', 'dialysis prescription',
+    'overview', 'full profile', 'medical history', 'medical background', 'vaccination', 'doctor rounds',
+    'cqi', 'documents', 'schedules', 'sessions', 'medication history', 'home medication',
+    'social work', 'nutrition', 'weekly evaluation', 'lab reports', 'dialysis prescription',
   ],
   [ROLES.SOCIAL_WORKER]: [
-    'overview', 'documents', 'schedules', 'sessions', 'cqi comments',
+    'overview', 'documents', 'schedules', 'sessions', 'cqi',
+    'social work', 'medical background',
+  ],
+  [ROLES.DIETITIAN]: [
+    'overview', 'medical history', 'medical background', 'lab reports', 'cqi',
+    'nutrition', 'schedules', 'sessions', 'documents',
+  ],
+  [ROLES.DON]: [
+    'overview', 'full profile', 'medical history', 'medical background', 'vaccination', 'doctor rounds',
+    'cqi', 'social work', 'nutrition', 'schedules', 'sessions', 'medication history',
+    'lab reports', 'documents', 'billing history',
   ],
 };
 
@@ -123,10 +145,10 @@ const READ_ONLY_TABS_BY_ROLE = {
 
 export const patientTabsForRole = (role) => {
   let keys = TABS_BY_ROLE[role] || ['overview'];
-  // Nurses and technicians don't manage CQI comments or the insurance form,
-  // so hide those tabs from the patient detail view for them.
+  // Nurses and technicians don't manage the insurance form, but they DO keep
+  // the unified CQI log (they meet the patient during treatment).
   if (role === ROLES.NURSE || role === ROLES.TECHNICIAN) {
-    keys = keys.filter((k) => k !== 'cqi' && k !== 'cqi comments' && k !== 'insurance form');
+    keys = keys.filter((k) => k !== 'insurance form');
   }
   return keys.map((key) => ({ key, label: PATIENT_TAB_LABELS[key] || key }));
 };
@@ -150,9 +172,10 @@ export const NAV_BY_ROLE = {
     ['Batch Monthly Round', '/doctor/batch-round', 'stethoscope'],
     ['Batch Edit', '/doctor/batch-edit', 'activity'],
     ['CQI', '/doctor/cqi', 'chart'],
-    ['Physician Billing', '/biller/physician-billing', 'card'],
-    ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
-    ['Medication Billing', '/biller/medication-billing', 'card'],
+    ['CQI Review', '/cqi/review', 'chart'],
+    ['Machines', '/biomed', 'wrench'],
+    ['Billing', '/billing', 'card'],
+    ['Inventory', '/billing/inventory', 'card'],
     ['Reports', '/reports', 'chart'],
   ],
   [ROLES.FRONT_DESK]: [
@@ -183,9 +206,8 @@ export const NAV_BY_ROLE = {
     ['Biller Dashboard', '/biller', 'home'],
     ['Patients', '/patients', 'users'],
     ['Doctor Rounds', '/biller/doctor-rounds', 'stethoscope'],
-    ['Physician Billing', '/biller/physician-billing', 'card'],
-    ['Dialysis Billing', '/biller/dialysis-billing', 'activity'],
-    ['Medication Billing', '/biller/medication-billing', 'card'],
+    ['Billing', '/billing', 'card'],
+    ['Inventory', '/billing/inventory', 'card'],
     ['Schedules', '/schedules', 'calendar'],
     ['Reports', '/reports', 'chart'],
   ],
@@ -205,6 +227,25 @@ export const NAV_BY_ROLE = {
   ],
   [ROLES.PATIENT]: [
     ['Patient Dashboard', '/patient', 'home'],
+  ],
+  [ROLES.DIETITIAN]: [
+    ['Dietitian Dashboard', '/dietitian', 'home'],
+    ['Patients', '/patients', 'users'],
+    ['Schedules', '/schedules', 'calendar'],
+  ],
+  [ROLES.DON]: [
+    ['DON Dashboard', '/don', 'home'],
+    ['Patients', '/patients', 'users'],
+    ['CQI Review', '/cqi/review', 'chart'],
+    ['Billing', '/billing', 'card'],
+    ['Inventory', '/billing/inventory', 'card'],
+    ['Reports', '/reports', 'chart'],
+    ['Schedules', '/schedules', 'calendar'],
+  ],
+  [ROLES.BIOMED]: [
+    ['Biomed — Stations', '/biomed', 'wrench'],
+    ['Station Maintenance', '/technician/maintenance', 'wrench'],
+    ['Inventory', '/billing/inventory', 'card'],
   ],
 };
 

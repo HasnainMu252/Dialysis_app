@@ -782,7 +782,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
             {allowEdit ? (
               <Link
                 to="/patients/new"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-700 to-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-xl"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#123B5D] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-xl"
               >
                 <PlusIcon />
                 Add Patient
@@ -1075,7 +1075,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
       {/* Selected records action bar */}
       {allowEdit &&
         selectedCount > 0 && (
-          <section className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <section className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-[#eaf0f6] p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
                 <CheckIcon />
@@ -1236,7 +1236,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-cyan-100 text-sm font-black text-blue-700">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e6f3f4] text-sm font-black text-blue-700">
                             {getInitials(patient)}
                           </div>
 
@@ -1412,7 +1412,7 @@ const [cleaningOrphans, setCleaningOrphans] = useState(false);
                         />
                       )}
 
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-cyan-100 font-black text-blue-700">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#e6f3f4] font-black text-blue-700">
                         {getInitials(patient)}
                       </div>
 

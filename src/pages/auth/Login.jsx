@@ -247,6 +247,9 @@ export default function Login() {
     biller: 'Biller',
     insurance_person: 'Insurance',
     patient: 'Patient',
+    dietitian: 'Dietitian',
+    don: 'Director of Nursing',
+    biomed: 'Biomed',
   };
 
   const roleHintLabel = roleHint ? ROLE_LABELS[roleHint] : '';
@@ -334,6 +337,49 @@ export default function Login() {
           error?.message ||
           'Unable to sign in. Please check your credentials.'
       );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =========================
+     DEMO ACCOUNTS (one-click login for testing)
+     Credentials match backend/src/utils/seed.js (npm run seed).
+  ========================= */
+  const DEMO_PASSWORD = 'Moscow@252';
+  const DEMO_DOMAIN = 'aegle.care';
+  const DEMO_ACCOUNTS = [
+    { role: 'admin', label: 'Admin', local: 'admin' },
+    { role: 'front_desk', label: 'Front Desk', local: 'frontdesk' },
+    { role: 'doctor', label: 'Doctor', local: 'doctor' },
+    { role: 'nurse', label: 'Nurse', local: 'nurse' },
+    { role: 'technician', label: 'Technician', local: 'technician' },
+    { role: 'social_worker', label: 'Social Worker', local: 'socialworker' },
+    { role: 'biller', label: 'Biller', local: 'biller' },
+    { role: 'insurance_person', label: 'Insurance', local: 'insurance' },
+    { role: 'dietitian', label: 'Dietitian', local: 'dietitian' },
+    { role: 'don', label: 'DON', local: 'don' },
+    { role: 'biomed', label: 'Biomed', local: 'biomed' },
+    { role: 'patient', label: 'Patient', local: 'patient' },
+  ];
+
+  const quickLogin = async (acc) => {
+    const email = `${acc.local}@${DEMO_DOMAIN}`;
+    setForm({ email, password: DEMO_PASSWORD, mfaToken: '' });
+    setMfaRequired(false);
+    setLoading(true);
+    try {
+      const result = await login({ email, password: DEMO_PASSWORD, mfaToken: '' });
+      if (result?.mfaRequired) {
+        setMfaRequired(true);
+        toast('Enter your authenticator code to continue.', { icon: '🔐' });
+        return;
+      }
+      const redirectTo = roleHome[result.user.role] || '/';
+      toast.success(`Signed in as ${acc.label}`);
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Demo login failed — run "npm run seed" to create the accounts.');
     } finally {
       setLoading(false);
     }
@@ -929,6 +975,27 @@ export default function Login() {
                 )}
               </button>
             </form>
+
+            {/* DEMO ACCOUNTS — one-click login for testing */}
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Demo accounts (testing)</p>
+                <span className="text-[11px] text-slate-400">pass: {DEMO_PASSWORD}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.role}
+                    type="button"
+                    onClick={() => quickLogin(acc)}
+                    disabled={loading}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {acc.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* ONE SECURITY MESSAGE ONLY */}
 

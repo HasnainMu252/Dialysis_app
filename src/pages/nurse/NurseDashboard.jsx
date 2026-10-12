@@ -84,7 +84,7 @@ function DashboardStatCard({
 
       <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 transition-all duration-500"
+          className="h-full rounded-full bg-[#123B5D] transition-all duration-500"
           style={{ width: `${safeProgress}%` }}
         />
       </div>

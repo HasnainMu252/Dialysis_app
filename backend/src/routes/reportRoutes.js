@@ -15,7 +15,7 @@ router.use(protect);
 
 router.get('/overview', authorize(...PERMISSIONS.reports), getOverviewReport);
 router.get('/sessions/monthly', authorize(...PERMISSIONS.reports), getMonthlySessionReport);
-router.get('/soap/monthly', authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER), getMonthlySoapReport);
-router.get('/dialysis-billing', authorize(ROLES.ADMIN, ROLES.BILLER), getDialysisBilling);
+router.get('/soap/monthly', authorize(ROLES.ADMIN, ROLES.DOCTOR, ROLES.BILLER, ROLES.DON), getMonthlySoapReport);
+router.get('/dialysis-billing', authorize(ROLES.ADMIN, ROLES.BILLER, ROLES.DON), getDialysisBilling);
 
 export default router;

@@ -45,6 +45,111 @@ const soapSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// ---- Flow sheet (technician-entered during treatment) ----
+// Mirrors the paper flow sheet: machine checks, solution mixing, access list,
+// access assessment. The dialysis prescription itself is the doctor-authored
+// DialysisPrescription (shown read-only); cannulation + "treatment initiated by"
+// are already captured by the cannulation checklist and startedBy.
+const machineCheckSchema = new mongoose.Schema(
+  {
+    machineBrand: { type: String, trim: true, default: '' },
+    machineNo: { type: String, trim: true, default: '' },
+    conductivityMachine: { type: String, trim: true, default: '' },
+    conductivityMeter: { type: String, trim: true, default: '' },
+    dicapFilterHoursRemaining: { type: String, trim: true, default: '' },
+    temperature: { type: String, trim: true, default: '' },
+    ph: { type: String, trim: true, default: '' },
+    alarmTest: { type: String, trim: true, default: '' },           // Pass | Fail
+    airDetector: { type: String, trim: true, default: '' },
+    pressureTestMachine: { type: String, trim: true, default: '' },
+    pressureCheckDialyzer: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
+const solutionMixingSchema = new mongoose.Schema(
+  {
+    dialysisWater: { type: String, trim: true, default: '' },
+    bicarbonate: { type: String, trim: true, default: '' },
+    mixing: { type: String, trim: true, default: '' },
+    temperature: { type: String, trim: true, default: '' },
+    correctSolutionVerified: { type: Boolean, default: false },
+    note: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
+const flowAccessLineSchema = new mongoose.Schema(
+  {
+    inUse: { type: Boolean, default: false },
+    type: { type: String, trim: true, default: '' },
+    site: { type: String, trim: true, default: '' },
+    placementDate: Date,
+    surgeon: { type: String, trim: true, default: '' },
+    arterialSide: { type: String, trim: true, default: '' },
+    infiltrations: { type: String, trim: true, default: '' },
+    bloodFlowRate: { type: String, trim: true, default: '' },
+    accessWashed: { type: String, trim: true, default: '' },
+    patientHandsWashed: { type: String, trim: true, default: '' },
+    catheterVerification: { type: String, trim: true, default: '' },
+  },
+  { _id: true }
+);
+
+const accessAssessmentSchema = new mongoose.Schema(
+  {
+    evaluationTime: { type: String, trim: true, default: '' },
+    bruit: { type: String, trim: true, default: '' },
+    thrill: { type: String, trim: true, default: '' },
+    extremitySwelling: { type: String, trim: true, default: '' },
+    dressingChanged: { type: String, trim: true, default: '' },
+    softTissueInfection: { type: String, trim: true, default: '' },
+    accessInfectionBacteremia: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
+// Structured access evaluation — a Yes/No checklist whose items depend on the
+// access type (Permacath / AV fistula / AV graft).
+const accessEvaluationSchema = new mongoose.Schema(
+  {
+    type: { type: String, trim: true, default: '' }, // permacath | av_fistula | av_graft
+    checks: {
+      // Permacath
+      permacath_noInfection: { type: Boolean, default: false },
+      permacath_noDischarge: { type: Boolean, default: false },
+      permacath_dressingClean: { type: Boolean, default: false },
+      // AV fistula
+      fistula_noInfection: { type: Boolean, default: false },
+      fistula_noPseudoaneurysm: { type: Boolean, default: false },
+      fistula_noUlceration: { type: Boolean, default: false },
+      fistula_warmCirculation: { type: Boolean, default: false },
+      fistula_noDeficit: { type: Boolean, default: false },
+      // AV graft
+      graft_noSteal: { type: Boolean, default: false },
+      graft_goodBruit: { type: Boolean, default: false },
+      graft_mature: { type: Boolean, default: false },
+    },
+    note: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
+const flowSheetSchema = new mongoose.Schema(
+  {
+    machineCheck: { type: machineCheckSchema, default: () => ({}) },
+    solutionMixing: { type: solutionMixingSchema, default: () => ({}) },
+    accessList: [flowAccessLineSchema],
+    accessAssessment: { type: accessAssessmentSchema, default: () => ({}) },
+    accessEvaluation: { type: accessEvaluationSchema, default: () => ({}) },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, trim: true },
+    updatedByRole: { type: String, trim: true },
+    updatedAt: Date,
+  },
+  { _id: false }
+);
+
 const sessionSchema = new mongoose.Schema(
   {
     schedule: {
@@ -164,6 +269,10 @@ const sessionSchema = new mongoose.Schema(
         { _id: true }
       ),
     ],
+
+    // Technician-entered clinical flow sheet (machine checks, solution mixing,
+    // access list, access assessment). One per session.
+    flowSheet: { type: flowSheetSchema, default: () => ({}) },
 
     treatmentSummary: String,
     sentToBillerAt: Date,
