@@ -7,7 +7,15 @@ import {
   deletePatient,
   findPatient,
   listPatients,
+  listPatientIds,
   sendToBiller,
+  updateVascularAccess,
+  updateSocialWork,
+  updateMedicalBackground,
+  updateNutrition,
+  addVaccination,
+  deleteVaccination,
+  updateDietitianAssessment,
   updatePatient,
   exportPatients,
   startRecurring,
@@ -17,7 +25,7 @@ import {
 import { uploadExcel } from '../middleware/uploadExcel.js';
 import { getPatientMedicationHistory, getPatientMonthlySummary } from '../controllers/medicationController.js';
 import { listHomeMedications, addHomeMedication } from '../controllers/homeMedicationController.js';
-import { listCqiComments, upsertCqiComment } from '../controllers/cqiCommentController.js';
+import { listCqiComments, addCqiComment } from '../controllers/cqiCommentController.js';
 import {
   getActivePrescription,
   getPrescriptionHistory,
@@ -63,12 +71,14 @@ router.post('/bulk-upload', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), uploadExce
 router.post('/cleanup-orphans', authorize(ROLES.ADMIN), cleanupOrphans);
 router.delete('/bulk-delete', authorize(...PERMISSIONS.patientDelete), bulkDeletePatients);
 router.get('/export', authorize(...PERMISSIONS.patientReadAll), exportPatients);
+router.get('/ids', authorize(...PERMISSIONS.patientReadAll), listPatientIds);
 router.get('/:idOrMrn/medications', authorize(...PERMISSIONS.patientReadAll), getPatientMedicationHistory);
 router.get('/:idOrMrn/monthly-summary', authorize(...PERMISSIONS.patientReadAll), getPatientMonthlySummary);
 router.get('/:idOrMrn/home-medications', authorize(...PERMISSIONS.patientReadAll), listHomeMedications);
 router.post('/:idOrMrn/home-medications', authorize(ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR), addHomeMedication);
 router.get('/:idOrMrn/cqi-comments', authorize(...PERMISSIONS.patientReadAll), listCqiComments);
-router.put('/:idOrMrn/cqi-comments', authorize(ROLES.NURSE, ROLES.TECHNICIAN, ROLES.SOCIAL_WORKER, ROLES.ADMIN), upsertCqiComment);
+router.post('/:idOrMrn/cqi-comments', authorize(...PERMISSIONS.cqiAuthors, ROLES.ADMIN), addCqiComment);
+router.put('/:idOrMrn/cqi-comments', authorize(...PERMISSIONS.cqiAuthors, ROLES.ADMIN), addCqiComment);
 // Dialysis prescription (hemodialysis order): doctor writes, everyone reads.
 router.get('/:idOrMrn/dialysis-prescription', authorize(...PERMISSIONS.patientReadAll), getActivePrescription);
 router.get('/:idOrMrn/dialysis-prescription/history', authorize(...PERMISSIONS.patientReadAll), getPrescriptionHistory);
@@ -78,6 +88,13 @@ router.post('/:idOrMrn/recurring/stop', authorize(ROLES.ADMIN, ROLES.FRONT_DESK,
 router.get('/:id', authorize(...PERMISSIONS.patientReadAll, ROLES.PATIENT), findPatient);
 router.patch('/:id', authorize(...PERMISSIONS.patientWrite), validate(patientUpdateSchema), updatePatient);
 router.patch('/:id/send-to-biller', authorize(ROLES.ADMIN, ROLES.FRONT_DESK), sendToBiller);
+router.patch('/:id/vascular-access', authorize(...PERMISSIONS.vascularAccessWrite), updateVascularAccess);
+router.patch('/:id/social-work', authorize(...PERMISSIONS.socialWorkWrite), updateSocialWork);
+router.patch('/:id/medical-background', authorize(...PERMISSIONS.medicalBackgroundWrite), updateMedicalBackground);
+router.patch('/:id/nutrition', authorize(...PERMISSIONS.nutritionWrite), updateNutrition);
+router.post('/:id/vaccinations', authorize(...PERMISSIONS.vaccinationWrite), addVaccination);
+router.delete('/:id/vaccinations/:vaccinationId', authorize(...PERMISSIONS.vaccinationWrite), deleteVaccination);
+router.patch('/:id/dietitian-assessment', authorize(...PERMISSIONS.dietitianAssessmentWrite), updateDietitianAssessment);
 router.delete('/:id', authorize(...PERMISSIONS.patientDelete), deletePatient);
 
 export default router;

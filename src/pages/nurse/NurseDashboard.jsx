@@ -9,7 +9,8 @@ import ScheduleCard from '../../components/common/ScheduleCard';
 import PatientBoard from '../../components/common/PatientBoard';
 import TodayRosterBoxes from '../../components/dashboard/TodayRosterBoxes';
 import NurseEntryFlow from '../../components/common/NurseEntryFlow';
-import { Link } from 'react-router-dom';
+import OrdersPanel from '../../components/common/OrdersPanel';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { personName } from '../../utils/format';
 
@@ -84,7 +85,7 @@ function DashboardStatCard({
 
       <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 transition-all duration-500"
+          className="h-full rounded-full bg-[#123B5D] transition-all duration-500"
           style={{ width: `${safeProgress}%` }}
         />
       </div>
@@ -93,6 +94,7 @@ function DashboardStatCard({
 }
 
 export default function NurseDashboard() {
+  const navigate = useNavigate();
   const [showEntry, setShowEntry] = useState(() => {
     try {
       const key = 'nurseEntryShown:' + (localStorage.getItem('token') || '');
@@ -227,11 +229,12 @@ export default function NurseDashboard() {
 
   const todaySchedules = useMemo(
     () =>
+      // Show every schedule for today that isn't finished — even if its time slot
+      // has already passed (morning slots shouldn't disappear in the afternoon).
       schedules.filter(
         (schedule) =>
           isSameDay(schedule.date, today) &&
-          !schedule.expired &&
-          schedule.status !== 'completed'
+          !['completed', 'cancelled', 'no_show'].includes(String(schedule.status || '').toLowerCase())
       ),
     [schedules, today]
   );
@@ -328,7 +331,10 @@ export default function NurseDashboard() {
                 key={schedule._id || schedule.id || schedule.code}
                 schedule={schedule}
                 index={index + 1}
-                onClick={() => {}}
+                onClick={() => {
+                  const pid = schedule.patient?._id || schedule.patient || schedule.patientId;
+                  navigate(pid ? `/workflow?patient=${pid}` : '/workflow');
+                }}
               />
             ))}
           </div>
@@ -384,6 +390,8 @@ export default function NurseDashboard() {
           </div>
         )}
       </section>
+
+      <OrdersPanel />
 
       <PatientBoard detailBase="/patients" />
     </div>

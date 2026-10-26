@@ -17,7 +17,7 @@ import { ROLES } from './constants.js';
  *   SEED_EMAIL_DOMAIN='clinic.com' npm run seed
  */
 
-const PASSWORD = process.env.SEED_PASSWORD || 'Passw0rd!';
+const PASSWORD = process.env.SEED_PASSWORD || 'Moscow@252';
 const DOMAIN = process.env.SEED_EMAIL_DOMAIN || 'aegle.care';
 
 const ACCOUNTS = [
@@ -29,6 +29,9 @@ const ACCOUNTS = [
   { role: ROLES.TECHNICIAN,      name: 'Dialysis Technician', local: 'technician' },
   { role: ROLES.SOCIAL_WORKER,   name: 'Social Worker',       local: 'socialworker' },
   { role: ROLES.DOCTOR,          name: 'Attending Physician', local: 'doctor' },
+  { role: ROLES.DIETITIAN,       name: 'Renal Dietitian',     local: 'dietitian' },
+  { role: ROLES.DON,             name: 'Director of Nursing', local: 'don' },
+  { role: ROLES.BIOMED,          name: 'Biomed Technician',   local: 'biomed' },
   { role: ROLES.PATIENT,         name: 'Demo Patient',        local: 'patient' },
 ];
 

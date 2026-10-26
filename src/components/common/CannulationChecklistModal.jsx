@@ -39,7 +39,7 @@ export default function CannulationChecklistModal({ open, onClose, onAcknowledge
     <Portal>
       <div className="fixed inset-0 z-[110] flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 sm:p-6" onClick={onClose}>
         <div className="my-4 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between border-b bg-gradient-to-r from-rose-700 to-red-600 px-5 py-3 text-white">
+          <div className="flex items-center justify-between border-b bg-[#B91C1C] px-5 py-3 text-white">
             <h3 className="text-sm font-extrabold sm:text-base">AVF Cannulation Instruction — Mandatory</h3>
             <button type="button" onClick={onClose} aria-label="Close" className="text-white/90 hover:text-white">✕</button>
           </div>

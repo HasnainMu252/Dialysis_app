@@ -39,7 +39,7 @@ export default function MedicationCard({
     <section className="card p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="font-extrabold text-slate-900">Medication Administration</h3>
+          <h3 className="font-extrabold text-slate-900">Dialysis Medications</h3>
           <p className="mt-1 text-sm text-slate-500">
             {allowMeds ? 'Record medications administered during this dialysis session.' : 'View only — medications are recorded by a nurse or doctor.'}
           </p>

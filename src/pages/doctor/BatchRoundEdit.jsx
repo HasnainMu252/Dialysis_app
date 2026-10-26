@@ -19,7 +19,7 @@ export default function BatchRoundEdit() {
   const [roundNumber, setRoundNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ physicianRound: emptyPhysicianRound(), doctorComments: '', socialWorkerComments: '', dietitianComments: '', cqi: {}, templateUsed: '' });
+  const [form, setForm] = useState({ physicianRound: emptyPhysicianRound(), doctorComments: '', socialWorkerComments: '', dietitianComments: '', templateUsed: '' });
 
   const load = async () => {
     setLoading(true);
@@ -51,7 +51,6 @@ export default function BatchRoundEdit() {
         doctorComments: form.doctorComments,
         socialWorkerComments: form.socialWorkerComments,
         dietitianComments: form.dietitianComments,
-        cqi: form.cqi,
       };
       const res = await doctorApi.batchUpdate({ ids: selectedIds, updates });
       toast.success(res.data?.message || 'Rounds updated');

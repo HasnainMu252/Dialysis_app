@@ -68,7 +68,7 @@ export default function DashboardLayout() {
   };
 
   const SidebarInner = (
-    <aside className="flex h-full w-72 flex-col bg-gradient-to-b from-slate-950 via-slate-950 to-blue-950 text-white">
+    <aside className="flex h-full w-72 flex-col bg-[#123B5D] text-white">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-5">
         <div className="flex items-center gap-3 leading-tight">
           <div>
@@ -152,7 +152,7 @@ export default function DashboardLayout() {
               {/* Profile dropdown */}
               <div className="relative">
                 <button onClick={() => { setProfileOpen((v) => !v); setNotifOpen(false); }} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-2 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40 sm:px-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 font-black text-white">{(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}</span>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#087E8B] font-black text-white">{(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}</span>
                   <span className="hidden leading-tight sm:block">
                     <span className="block max-w-32 truncate text-sm font-extrabold text-slate-950">{user?.name || 'User'}</span>
                     <span className="block text-xs font-medium text-slate-500">{ROLE_LABELS[user?.role] || user?.role}</span>
@@ -161,7 +161,7 @@ export default function DashboardLayout() {
                 </button>
                 {profileOpen && (
                   <div className="absolute right-0 mt-2 w-[min(18rem,90vw)] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/50">
-                    <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-4 text-white">
+                    <div className="bg-[#087E8B] p-4 text-white">
                       <div className="flex items-center gap-3"><UserCircle className="h-10 w-10" /><div className="min-w-0"><p className="truncate font-extrabold">{user?.name || 'User'}</p><p className="truncate text-xs text-blue-50">{user?.email}</p><p className="mt-1 text-xs font-bold uppercase tracking-wide text-blue-100">{ROLE_LABELS[user?.role] || user?.role}</p></div></div>
                     </div>
                     <button onClick={() => { setProfileOpen(false); navigate('/settings/security'); }} className="flex w-full items-center gap-2 border-b px-4 py-3 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-50"><ShieldCheck size={17} /> Security &amp; MFA</button><button onClick={handleLogout} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-red-600 transition hover:bg-red-50"><LogOut size={17} /> Logout</button>

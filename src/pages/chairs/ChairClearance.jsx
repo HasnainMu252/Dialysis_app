@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { chairApi } from '../../api/chairApi';
-import { chairClearanceApi } from '../../api/chairClearanceApi';
+import { chairClearanceApi, MAINTENANCE_TYPES } from '../../api/chairClearanceApi';
 import { scheduleApi } from '../../api/scheduleApi';
 import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
@@ -47,7 +47,9 @@ export default function ChairClearance() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
   const [chairCode, setChairCode] = useState('');
+  const [showAllStations, setShowAllStations] = useState(false);
   const [status, setStatus] = useState('available');
+  const [maintenanceType, setMaintenanceType] = useState('Routine clean');
   const [notes, setNotes] = useState('Station cleaned and ready for next patient.');
   const [checklist, setChecklist] = useState(makeChecklist('available'));
 
@@ -77,21 +79,30 @@ export default function ChairClearance() {
     return map;
   }, [schedules, date]);
 
+  // By default show only stations that are busy (reserved or not available) to
+  // keep the page short; a toggle reveals all stations.
+  const visibleChairs = useMemo(() => {
+    if (showAllStations) return chairs;
+    return chairs.filter(
+      (c) => Object.keys(occupancy[chairKey(c)] || {}).length > 0 || c.status !== 'available'
+    );
+  }, [chairs, occupancy, showAllStations]);
+
   const changeStatus = (value) => {
     setStatus(value);
     setChecklist(makeChecklist(value));
-    if (value === 'maintenance') setNotes('Issue found. Station moved to maintenance.');
-    if (value === 'available') setNotes('Station cleaned and ready for next patient.');
+    if (value === 'maintenance') { setNotes('Issue found. Station moved to maintenance.'); setMaintenanceType('Issue report'); }
+    if (value === 'available') { setNotes('Station cleaned and ready for next patient.'); setMaintenanceType('Routine clean'); }
     if (value === 'cleaning') setNotes('Station cleaning in progress.');
-    if (value === 'out_of_order') setNotes('Station not safe for treatment.');
+    if (value === 'out_of_order') { setNotes('Station not safe for treatment.'); setMaintenanceType('Issue report'); }
   };
 
   const submit = async (event) => {
     event.preventDefault();
     if (!chairCode) return toast.error('Select chair');
     try {
-      await chairClearanceApi.create(chairCode, { status, notes, checklist });
-      toast.success('Station clearance saved');
+      await chairClearanceApi.create(chairCode, { status, maintenanceType, notes, checklist });
+      toast.success('Submitted to Biomed');
       load();
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to save chair clearance');
@@ -120,8 +131,17 @@ export default function ChairClearance() {
 
         {!chairs.length && <EmptyState message="No chairs found" />}
 
-        <div className="space-y-3">
-          {chairs.map((chair) => {
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-slate-500">
+            {showAllStations ? `All ${chairs.length} stations` : `${visibleChairs.length} busy station(s) of ${chairs.length}`}
+          </p>
+          <button type="button" onClick={() => setShowAllStations((v) => !v)} className="btn-light py-1.5 text-xs">
+            {showAllStations ? 'Show busy only' : 'Show all stations'}
+          </button>
+        </div>
+
+        <div className="grid max-h-[32rem] grid-cols-1 gap-3 overflow-y-auto pr-1 xl:grid-cols-2">
+          {visibleChairs.map((chair) => {
             const code = chairKey(chair);
             const occ = occupancy[code] || {};
             const reservedHours = Object.keys(occ).length;
@@ -135,13 +155,13 @@ export default function ChairClearance() {
                   <span className="text-xs font-bold text-slate-500">{reservedHours ? `${reservedHours}h reserved` : 'Fully free'}</span>
                 </div>
                 <div className="overflow-x-auto pb-1">
-                  <div className="flex min-w-[680px] gap-0.5">
+                  <div className="flex min-w-[440px] gap-0.5">
                     {HOURS.map((h) => {
                       const slot = occ[h];
                       const color = slot ? (STATUS_COLOR[slot.status] || 'bg-blue-500') : 'bg-slate-100';
                       return (
                         <div key={h} className="flex-1" title={slot ? `${String(h).padStart(2, '0')}:00 · ${slot.patientName} (${slot.time})` : `${String(h).padStart(2, '0')}:00 · free`}>
-                          <div className={`h-8 rounded ${color} ${slot ? '' : 'ring-1 ring-inset ring-slate-200'}`} />
+                          <div className={`h-6 rounded ${color} ${slot ? '' : 'ring-1 ring-inset ring-slate-200'}`} />
                           <div className="mt-0.5 text-center text-[9px] font-semibold text-slate-400">{h}</div>
                         </div>
                       );
@@ -164,15 +184,24 @@ export default function ChairClearance() {
       </section>
 
       <form onSubmit={submit} className="card space-y-4 p-5">
-        <h2 className="text-lg font-extrabold text-slate-900">Clear a chair</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">Machine maintenance report</h2>
+          <p className="text-sm text-slate-500">Record maintenance for a specific machine/station. The report is sent to the Biomed team, who see it on their dashboard and mark it handled.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
           <div>
-            <label className="label">Station</label>
+            <label className="label">Station / Machine</label>
             <select className="input" value={chairCode} onChange={(e) => setChairCode(e.target.value)}>
               <option value="">Select Station</option>
               {chairs.map((chair) => (
                 <option key={chair._id} value={chairKey(chair)}>{chairKey(chair)} - {chair.status}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Maintenance Type</label>
+            <select className="input" value={maintenanceType} onChange={(e) => setMaintenanceType(e.target.value)}>
+              {MAINTENANCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
@@ -185,7 +214,7 @@ export default function ChairClearance() {
             </select>
           </div>
           <div>
-            <label className="label">Notes</label>
+            <label className="label">Notes / issue detail</label>
             <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </div>
@@ -199,7 +228,7 @@ export default function ChairClearance() {
           ))}
         </div>
 
-        <button className="btn-primary">Save Station Clearance</button>
+        <button className="btn-primary">Submit to Biomed</button>
       </form>
 
       <section className="card p-5">
@@ -209,10 +238,19 @@ export default function ChairClearance() {
             <div className="rounded-xl border p-3 text-sm" key={item._id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <b>Station {item.chairCode}</b>
-                <StatusBadge status={item.status} />
+                <div className="flex items-center gap-1.5">
+                  {item.maintenanceType && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">{item.maintenanceType}</span>}
+                  <StatusBadge status={item.status} />
+                </div>
               </div>
               <p className="text-slate-600">{item.notes}</p>
-              <p className="text-xs text-slate-400">{item.createdAt?.slice(0, 10)}</p>
+              <p className="text-xs text-slate-400">
+                {item.createdAt?.slice(0, 10)}
+                {item.clearedByName ? ` • by ${item.clearedByName}${item.clearedByRole ? ` (${String(item.clearedByRole).replace('_', ' ')})` : ''}` : ''}
+                {item.resolved
+                  ? ` • ✓ handled by Biomed${item.resolvedByName ? ` (${item.resolvedByName})` : ''}`
+                  : ' • awaiting Biomed'}
+              </p>
             </div>
           ))}
         </div>

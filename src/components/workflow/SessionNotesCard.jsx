@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import NoteAuthor from '../common/NoteAuthor';
 import CqiPanel from '../common/CqiPanel';
+import { patientApi } from '../../api/patientApi';
+import { accessTypeLabel } from '../../constants/vascularAccess';
+import { dateOnly } from '../../utils/format';
 
 /**
  * Session notes card. Access-type options are role-specific:
@@ -22,10 +26,37 @@ export default function SessionNotesCard({
 }) {
   const isOther = noteForm.accessType === 'Other';
 
+  // Fistula / access history + maintenance date for the patient being treated.
+  const [access, setAccess] = useState(null);
+  useEffect(() => {
+    if (!patientId) { setAccess(null); return; }
+    let live = true;
+    patientApi.get(patientId)
+      .then((r) => { if (live) setAccess((r.data?.data || r.data)?.vascularAccess || null); })
+      .catch(() => { if (live) setAccess(null); });
+    return () => { live = false; };
+  }, [patientId]);
+
+  const hasAccess = access && (access.accessType || access.location || access.status || access.placementDate || access.lastAssessmentDate);
+
   return (
     <section className="card p-5">
       <h3 className="font-extrabold text-slate-900">Session Notes / Comments</h3>
       <p className="mt-1 text-sm text-slate-500">Record how the patient was accessed and any observation during dialysis. Your name and role are saved with each note and shown with the SOAP notes in the session detail.</p>
+
+      {hasAccess && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Patient access on file</p>
+          <p className="text-slate-700">
+            <b>{accessTypeLabel(access.accessType) || '—'}</b>
+            {access.location ? ` • ${access.location}` : ''}
+            {access.status ? ` • ${access.status}` : ''}
+            {access.placementDate ? ` • placed ${dateOnly(access.placementDate)}` : ''}
+            {access.lastAssessmentDate ? ` • last maintained ${dateOnly(access.lastAssessmentDate)}` : ''}
+          </p>
+          {access.complications ? <p className="mt-0.5 text-xs text-amber-700">Complications: {access.complications}</p> : null}
+        </div>
+      )}
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)]">
         <div>

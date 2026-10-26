@@ -87,7 +87,7 @@ export default function NurseEntryFlow({ onDone }) {
     return (
       <Page
         header={
-          <div className="flex min-h-[72px] w-full items-center justify-between bg-gradient-to-r from-rose-700 to-red-600 px-4 py-4 text-white sm:px-8 lg:px-10">
+          <div className="flex min-h-[72px] w-full items-center justify-between bg-[#B91C1C] px-4 py-4 text-white sm:px-8 lg:px-10">
             <div>
               <h1 className="text-lg font-black sm:text-xl lg:text-2xl">
                 AVF Cannulation Instruction

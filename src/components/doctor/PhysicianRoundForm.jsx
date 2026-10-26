@@ -4,7 +4,7 @@ import { ROUND_SECTIONS, ROUND_TEMPLATES, TEMPLATE_NAMES } from '../../constants
  * Controlled structured round form.
  * value = { physicianRound, doctorComments, socialWorkerComments, dietitianComments, cqi, templateUsed }
  */
-export default function PhysicianRoundForm({ value, onChange, showComments = true, showCqi = true, hiddenSections = [] }) {
+export default function PhysicianRoundForm({ value, onChange, showComments = true, hiddenSections = [] }) {
   const pr = value.physicianRound || {};
 
   const setSectionField = (sectionKey, fieldKey, fieldValue) => {
@@ -90,17 +90,10 @@ export default function PhysicianRoundForm({ value, onChange, showComments = tru
             <div><label className="label">Social Worker Comments</label><textarea className="input min-h-24" value={value.socialWorkerComments || ''} onChange={(e) => onChange({ ...value, socialWorkerComments: e.target.value })} /></div>
             <div><label className="label">Dietitian Comments</label><textarea className="input min-h-24" value={value.dietitianComments || ''} onChange={(e) => onChange({ ...value, dietitianComments: e.target.value })} /></div>
           </div>
-        </div>
-      )}
-
-      {showCqi && (
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <h4 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-blue-800">CQI</h4>
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div><label className="label">Patient CQI</label><textarea className="input min-h-20" value={value.cqi?.patient || ''} onChange={(e) => onChange({ ...value, cqi: { ...(value.cqi || {}), patient: e.target.value } })} /></div>
-            <div><label className="label">Social CQI</label><textarea className="input min-h-20" value={value.cqi?.social || ''} onChange={(e) => onChange({ ...value, cqi: { ...(value.cqi || {}), social: e.target.value } })} /></div>
-            <div><label className="label">Dietitian CQI</label><textarea className="input min-h-20" value={value.cqi?.dietitian || ''} onChange={(e) => onChange({ ...value, cqi: { ...(value.cqi || {}), dietitian: e.target.value } })} /></div>
-          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            CQI is no longer entered here — it is a single continuous log on the patient's
+            <b> CQI</b> tab, where every role's entries are collected for the DON / Admin review.
+          </p>
         </div>
       )}
     </div>

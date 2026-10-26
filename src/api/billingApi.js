@@ -3,6 +3,12 @@ export const billingApi={
   updateInsurance:(patientIdOrMrn,data)=>api.patch(`/billing/insurance/${patientIdOrMrn}`,data),
   listClaims:(params)=>api.get('/billing/claims',{params}),
   createClaim:(data)=>api.post('/billing/claims',data),
+  generateDue:()=>api.post('/billing/claims/generate-due'),
+  summary:(params)=>api.get('/billing/summary',{params}),
   getClaim:(id)=>api.get(`/billing/claims/${id}`),
-  updateClaim:(id,data)=>api.patch(`/billing/claims/${id}`,data)
+  updateClaim:(id,data)=>api.patch(`/billing/claims/${id}`,data),
+  // Phase D — activity logs (no fees)
+  activity:(params)=>api.get('/billing/activity',{params}),
+  daily:(params)=>api.get('/billing/daily',{params}),
+  medReconciliation:(params)=>api.get('/billing/med-reconciliation',{params}),
 };

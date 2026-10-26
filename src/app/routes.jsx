@@ -20,6 +20,8 @@ import MedicationReport from '../pages/reports/MedicationReport';
 import ReportsHub from '../pages/reports/ReportsHub';
 import BatchRoundEntry from '../pages/doctor/BatchRoundEntry';
 import BatchRoundEdit from '../pages/doctor/BatchRoundEdit';
+import WeeklyEvaluationPage from '../pages/doctor/WeeklyEvaluationPage';
+import MonthlyRoundPage from '../pages/doctor/MonthlyRoundPage';
 import CqiPage from '../pages/doctor/CqiPage';
 import UserManagement from '../pages/admin/UserManagement';
 import AuditLogs from '../pages/admin/AuditLogs';
@@ -40,6 +42,14 @@ import MenuPage from '../pages/menu/MenuPage';
 import SecuritySettings from '../pages/settings/SecuritySettings';
 import Notifications from '../pages/notifications/Notifications';
 import DoctorDashboard from '../pages/doctor/DoctorDashboard';
+import DietitianDashboard from '../pages/dietitian/DietitianDashboard';
+import DonDashboard from '../pages/don/DonDashboard';
+import BiomedDashboard from '../pages/biomed/BiomedDashboard';
+import CqiReview from '../pages/cqi/CqiReview';
+import BillingActivity from '../pages/billing/BillingActivity';
+import BillingHub from '../pages/billing/BillingHub';
+import Inventory from '../pages/billing/Inventory';
+import OrdersPage from '../pages/orders/OrdersPage';
 
 const patientViewRoles = [
   ROLES.ADMIN,
@@ -50,6 +60,8 @@ const patientViewRoles = [
   ROLES.SOCIAL_WORKER,
   ROLES.TECHNICIAN,
   ROLES.DOCTOR,
+  ROLES.DIETITIAN,
+  ROLES.DON,
 ];
 
 const patientCreateRoles = [ROLES.ADMIN, ROLES.FRONT_DESK, ROLES.BILLER, ROLES.INSURANCE_PERSON];
@@ -80,7 +92,7 @@ export default function AppRoutes() {
             <Route path="/admin/audit-logs" element={<AuditLogs />} />
           </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR]} />}>
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.DON]} />}>
             <Route path="/reports" element={<ReportsHub />} />
           </Route>
 
@@ -110,7 +122,7 @@ export default function AppRoutes() {
             <Route path="/workflow" element={<TreatmentWorkflow />} />
           </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.TECHNICIAN, ROLES.NURSE]} />}>
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.TECHNICIAN, ROLES.NURSE, ROLES.BIOMED]} />}>
             <Route path="/technician" element={<TechnicianDashboard />} />
             <Route path="/chairs" element={<ChairList />} />
             <Route path="/technician/maintenance" element={<ChairClearance />} />
@@ -120,7 +132,8 @@ export default function AppRoutes() {
             <Route path="/social-worker" element={<SocialWorkerDashboard />} />
           </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER]} />}>
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER, ROLES.DON]} />}>
+            <Route path="/billing" element={<BillingHub />} />
             <Route path="/biller" element={<BillerDashboard />} />
             <Route path="/biller/claims" element={<Claims />} />
             <Route path="/biller/doctor-rounds" element={<BillerDoctorRounds />} />
@@ -128,6 +141,15 @@ export default function AppRoutes() {
             <Route path="/biller/dialysis-billing" element={<DialysisBilling />} />
             <Route path="/biller/medication-billing" element={<MedicationBilling />} />
             <Route path="/reports/medication" element={<MedicationReport />} />
+            <Route path="/billing/activity" element={<BillingActivity />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BILLER, ROLES.DON, ROLES.BIOMED]} />}>
+            <Route path="/billing/inventory" element={<Inventory />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.DOCTOR, ROLES.FRONT_DESK, ROLES.NURSE]} />}>
+            <Route path="/orders" element={<OrdersPage />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.INSURANCE_PERSON]} />}>
@@ -137,9 +159,24 @@ export default function AppRoutes() {
           <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.DOCTOR]} />}>
             <Route path="/doctor" element={<DoctorDashboard />} />
             <Route path="/doctor/patients/:id" element={<PatientDetails />} />
+            <Route path="/doctor/weekly" element={<WeeklyEvaluationPage />} />
+            <Route path="/doctor/monthly" element={<MonthlyRoundPage />} />
             <Route path="/doctor/batch-round" element={<BatchRoundEntry />} />
             <Route path="/doctor/batch-edit" element={<BatchRoundEdit />} />
             <Route path="/doctor/cqi" element={<CqiPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.DON]} />}>
+            <Route path="/don" element={<DonDashboard />} />
+            <Route path="/cqi/review" element={<CqiReview />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.DIETITIAN]} />}>
+            <Route path="/dietitian" element={<DietitianDashboard />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.BIOMED]} />}>
+            <Route path="/biomed" element={<BiomedDashboard />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={[ROLES.PATIENT]} />}>

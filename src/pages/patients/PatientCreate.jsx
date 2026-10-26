@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { patientApi } from '../../api/patientApi';
 import { insuranceFormApi } from '../../api/insuranceFormApi';
+import { TREATMENT_ACCESS_TYPES } from '../../api/medicationApi';
 import {
   TextField,
   SelectField,
@@ -53,7 +54,7 @@ const initialForm = {
     diagnosis: 'CKD Stage 2',
     dialysisFrequency: '3 Times Weekly',
     allergies: 'Penicillin',
-    accessType: 'AV Fistula',
+    accessType: 'Fistula',
     postWeight: '',
     height: '',
     diabetic: 'unknown',
@@ -62,6 +63,11 @@ const initialForm = {
     previousDialysisLocation: '',
     previousDialysisDate: '',
     notes: '',
+  },
+
+  vascularAccess: {
+    fistula: { present: false, type: 'AV Fistula', site: '', placementDate: '', ageText: '', note: '' },
+    catheter: { present: false, type: '', site: '', placementDate: '', ageText: '', note: '' },
   },
 
   registration: {
@@ -159,6 +165,17 @@ export default function PatientCreate() {
       [section]: {
         ...p[section],
         [field]: value,
+      },
+    }));
+  };
+
+  // Two-level setter for vascularAccess.<line>.<field>.
+  const setAccess = (line, field, value) => {
+    setForm((p) => ({
+      ...p,
+      vascularAccess: {
+        ...p.vascularAccess,
+        [line]: { ...p.vascularAccess[line], [field]: value },
       },
     }));
   };
@@ -326,6 +343,19 @@ export default function PatientCreate() {
             : [],
           previousDialysisDate:
             form.medicalHistory.previousDialysisDate || undefined,
+        },
+
+        vascularAccess: {
+          // Single access type seeded from registration (one source of truth).
+          accessType: form.medicalHistory.accessType || '',
+          fistula: {
+            ...form.vascularAccess.fistula,
+            placementDate: form.vascularAccess.fistula.placementDate || undefined,
+          },
+          catheter: {
+            ...form.vascularAccess.catheter,
+            placementDate: form.vascularAccess.catheter.placementDate || undefined,
+          },
         },
 
         registration: {
@@ -663,10 +693,11 @@ export default function PatientCreate() {
                   setNested('medicalHistory', 'dialysisFrequency', v)
                 }
               />
-              <TextField
+              <SelectField
                 label="Access Type"
                 value={form.medicalHistory.accessType}
                 onChange={(v) => setNested('medicalHistory', 'accessType', v)}
+                options={['', ...TREATMENT_ACCESS_TYPES]}
               />
               <TextField
                 label="Allergies comma separated"
@@ -726,6 +757,34 @@ export default function PatientCreate() {
                 value={form.medicalHistory.notes}
                 onChange={(v) => setNested('medicalHistory', 'notes', v)}
               />
+            </div>
+          </section>
+
+          <section className="card p-5">
+            <h2 className="mb-4 font-bold">Vascular Access (Fistula / Catheter)</h2>
+            <div className="grid gap-6 md:grid-cols-2">
+              {['fistula', 'catheter'].map((line) => (
+                <div key={line} className="rounded-xl border border-slate-200 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="font-bold capitalize text-slate-800">{line}</h3>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={!!form.vascularAccess[line].present}
+                        onChange={(e) => setAccess(line, 'present', e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      In use
+                    </label>
+                  </div>
+                  <div className="grid gap-4">
+                    <TextField label="Type" value={form.vascularAccess[line].type} onChange={(v) => setAccess(line, 'type', v)} />
+                    <TextField label="Site" value={form.vascularAccess[line].site} onChange={(v) => setAccess(line, 'site', v)} />
+                    <TextField label="Placement Date" type="date" value={form.vascularAccess[line].placementDate} onChange={(v) => setAccess(line, 'placementDate', v)} />
+                    <TextField label="Age (if no date)" value={form.vascularAccess[line].ageText} onChange={(v) => setAccess(line, 'ageText', v)} />
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         </>

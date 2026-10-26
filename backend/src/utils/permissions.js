@@ -14,6 +14,8 @@ export const PERMISSIONS = Object.freeze({
     ROLES.SOCIAL_WORKER,
     ROLES.TECHNICIAN,
     ROLES.DOCTOR,
+    ROLES.DIETITIAN,
+    ROLES.DON,
   ],
 
   patientWrite: [
@@ -34,6 +36,8 @@ export const PERMISSIONS = Object.freeze({
     ROLES.SOCIAL_WORKER,
     ROLES.TECHNICIAN,
     ROLES.DOCTOR,
+    ROLES.DIETITIAN,
+    ROLES.DON,
   ],
 
   scheduleWrite: [ROLES.ADMIN, ROLES.FRONT_DESK],
@@ -42,7 +46,19 @@ export const PERMISSIONS = Object.freeze({
 
   chairOps: [ROLES.ADMIN, ROLES.TECHNICIAN],
 
-  billing: [ROLES.ADMIN, ROLES.BILLER, ROLES.INSURANCE_PERSON],
+  // Biomed (and admin) manage the machine registry + maintenance records.
+  machineManage: [ROLES.ADMIN, ROLES.BIOMED],
+
+  // CQI comment authors: clinical roles who meet the patient.
+  cqiAuthors: [ROLES.NURSE, ROLES.TECHNICIAN, ROLES.SOCIAL_WORKER, ROLES.DOCTOR, ROLES.DIETITIAN],
+
+  // Monthly CQI review (read-all across patients).
+  cqiReview: [ROLES.ADMIN, ROLES.DON],
+
+  billing: [ROLES.ADMIN, ROLES.BILLER, ROLES.INSURANCE_PERSON, ROLES.DON],
+
+  // Purchasing & supply inventory — biller, admin, DON and Biomed.
+  inventoryManage: [ROLES.ADMIN, ROLES.BILLER, ROLES.DON, ROLES.BIOMED],
 
   socialWork: [ROLES.ADMIN, ROLES.SOCIAL_WORKER],
 
@@ -66,7 +82,22 @@ export const PERMISSIONS = Object.freeze({
 
   doctorRounds: [ROLES.ADMIN, ROLES.DOCTOR],
 
-  reports: [ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR],
+  // Fistula / catheter access: nurse and doctor maintain it (plus admin),
+  // even though they cannot edit the rest of the patient record.
+  vascularAccessWrite: [ROLES.ADMIN, ROLES.NURSE, ROLES.DOCTOR],
+
+  // Phase C field-level editors.
+  socialWorkWrite: [ROLES.ADMIN, ROLES.SOCIAL_WORKER],
+  medicalBackgroundWrite: [ROLES.ADMIN, ROLES.SOCIAL_WORKER, ROLES.NURSE, ROLES.DOCTOR, ROLES.FRONT_DESK],
+  nutritionWrite: [ROLES.ADMIN, ROLES.DIETITIAN],
+
+  // Vaccination log — clinical staff who administer doses.
+  vaccinationWrite: [ROLES.ADMIN, ROLES.DOCTOR, ROLES.NURSE, ROLES.TECHNICIAN],
+
+  // Dietitian bone/mineral + non-bone measurements.
+  dietitianAssessmentWrite: [ROLES.ADMIN, ROLES.DIETITIAN],
+
+  reports: [ROLES.ADMIN, ROLES.BILLER, ROLES.DOCTOR, ROLES.DON],
 });
 
 /**
@@ -76,7 +107,7 @@ export const PERMISSIONS = Object.freeze({
  */
 export const visiblePatientFields = (role) => {
   const common =
-    'mrn firstName lastName dob gender phone email address city state zip emergencyContact medicalHistory status shift dayPattern recurring sentToBillerAt createdAt updatedAt';
+    'mrn firstName lastName dob gender phone email address city state zip emergencyContact medicalHistory vascularAccess socialWork medicalBackground nutrition vaccinations dietitianAssessment status shift dayPattern recurring sentToBillerAt createdAt updatedAt';
 
   const fullProfileRoles = [
     ROLES.ADMIN,
@@ -84,13 +115,14 @@ export const visiblePatientFields = (role) => {
     ROLES.INSURANCE_PERSON,
     ROLES.FRONT_DESK,
     ROLES.DOCTOR,
+    ROLES.DON,
   ];
 
   if (fullProfileRoles.includes(role)) {
     return `${common} registration insurance patientType homeFacility referralSource hospital`;
   }
 
-  if ([ROLES.NURSE, ROLES.TECHNICIAN, ROLES.SOCIAL_WORKER].includes(role)) {
+  if ([ROLES.NURSE, ROLES.TECHNICIAN, ROLES.SOCIAL_WORKER, ROLES.DIETITIAN].includes(role)) {
     return common;
   }
 

@@ -8,36 +8,29 @@ import { useAuth } from '../../context/AuthContext';
 import Aegle from '../../Assets/Aegle.png';
 import Azuza from '../../Assets/Azuza.png';
 
+// Solid brand backgrounds (fixed palette — no gradients).
 const slides = [
   {
-    from: 'from-blue-700',
-    via: 'via-blue-600',
-    to: 'to-cyan-500',
-    accent: 'bg-cyan-300',
+    bg: 'bg-[#123B5D]',
+    accent: 'bg-[#087E8B]',
     title: 'Dialysis Care, Coordinated',
     text: 'Manage schedules, chairs, treatments, medications and patient records from one secure platform.',
   },
   {
-    from: 'from-indigo-800',
-    via: 'via-indigo-600',
-    to: 'to-blue-500',
-    accent: 'bg-blue-300',
+    bg: 'bg-[#0f3151]',
+    accent: 'bg-white',
     title: 'Safer Treatment Workflow',
     text: 'Capture vitals, treatment details, SOAP notes and session history at every chair.',
   },
   {
-    from: 'from-cyan-700',
-    via: 'via-teal-600',
-    to: 'to-emerald-500',
-    accent: 'bg-emerald-300',
+    bg: 'bg-[#087E8B]',
+    accent: 'bg-[#123B5D]',
     title: 'Complete Medication Tracking',
     text: 'Track dialysis medications and home medicines with clear daily and monthly reports.',
   },
   {
-    from: 'from-slate-900',
-    via: 'via-blue-900',
-    to: 'to-blue-600',
-    accent: 'bg-blue-300',
+    bg: 'bg-slate-900',
+    accent: 'bg-[#087E8B]',
     title: 'Designed for Your Entire Team',
     text: 'Secure role-based access for doctors, nurses, technicians, billers and front-desk staff.',
   },
@@ -247,6 +240,9 @@ export default function Login() {
     biller: 'Biller',
     insurance_person: 'Insurance',
     patient: 'Patient',
+    dietitian: 'Dietitian',
+    don: 'Director of Nursing',
+    biomed: 'Biomed',
   };
 
   const roleHintLabel = roleHint ? ROLE_LABELS[roleHint] : '';
@@ -339,133 +335,147 @@ export default function Login() {
     }
   };
 
+  /* =========================
+     DEMO ACCOUNTS (one-click login for testing)
+     Credentials match backend/src/utils/seed.js (npm run seed).
+  ========================= */
+  const DEMO_PASSWORD = 'Moscow@252';
+  const DEMO_DOMAIN = 'aegle.care';
+  const DEMO_ACCOUNTS = [
+    { role: 'admin', label: 'Admin', local: 'admin' },
+    { role: 'front_desk', label: 'Front Desk', local: 'frontdesk' },
+    { role: 'doctor', label: 'Doctor', local: 'doctor' },
+    { role: 'nurse', label: 'Nurse', local: 'nurse' },
+    { role: 'technician', label: 'Technician', local: 'technician' },
+    { role: 'social_worker', label: 'Social Worker', local: 'socialworker' },
+    { role: 'biller', label: 'Biller', local: 'biller' },
+    { role: 'insurance_person', label: 'Insurance', local: 'insurance' },
+    { role: 'dietitian', label: 'Dietitian', local: 'dietitian' },
+    { role: 'don', label: 'DON', local: 'don' },
+    { role: 'biomed', label: 'Biomed', local: 'biomed' },
+    { role: 'patient', label: 'Patient', local: 'patient' },
+  ];
+
+  const quickLogin = async (acc) => {
+    const email = `${acc.local}@${DEMO_DOMAIN}`;
+    setForm({ email, password: DEMO_PASSWORD, mfaToken: '' });
+    setMfaRequired(false);
+    setLoading(true);
+    try {
+      const result = await login({ email, password: DEMO_PASSWORD, mfaToken: '' });
+      if (result?.mfaRequired) {
+        setMfaRequired(true);
+        toast('Enter your authenticator code to continue.', { icon: '🔐' });
+        return;
+      }
+      const redirectTo = roleHome[result.user.role] || '/';
+      toast.success(`Signed in as ${acc.label}`);
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Demo login failed — run "npm run seed" to create the accounts.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const activeSlide = slides[slide];
 
-  return (
-    <main className="fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-hidden bg-slate-950">
-      {/* =====================================================
-          FULL SCREEN BACKGROUND
-      ===================================================== */}
+ 
+return (
+  <main className="fixed inset-0 z-[9999] overflow-x-hidden overflow-y-auto bg-[#102f4b] lg:overflow-y-auto">
 
-      <section className="absolute inset-0 overflow-hidden">
-        {/* Gradient slides */}
-        {slides.map((item, index) => (
-          <div
-            key={item.title}
-            className={`
-              absolute
-              inset-0
-              bg-gradient-to-br
-              ${item.from}
-              ${item.via}
-              ${item.to}
-              transition-all
-              duration-1000
-              ${
-                index === slide
-                  ? 'scale-100 opacity-100'
-                  : 'scale-105 opacity-0'
-              }
-            `}
-          />
-        ))}
-
-        {/* Dot texture */}
+    {/* BACKGROUND */}
+    <div className="pointer-events-none fixed inset-0 overflow-hidden">
+      {slides.map((item, index) => (
         <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at center, rgba(255,255,255,0.9) 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
+          key={item.title}
+          className={`absolute inset-0 ${item.bg} transition-opacity duration-1000 ${
+            slide === index ? 'opacity-100' : 'opacity-0'
+          }`}
         />
+      ))}
 
-        {/* Glow */}
-        <div className="absolute -left-32 top-20 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-32 right-0 h-[500px] w-[500px] rounded-full bg-cyan-300/20 blur-3xl" />
+      <div
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle,rgba(255,255,255,.9) 1px,transparent 1px)',
+          backgroundSize: '36px 36px',
+        }}
+      />
 
-        {/* Slight dark overlay */}
-        <div className="absolute inset-0 bg-slate-950/10" />
+      <div className="absolute -left-20 top-20 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute -bottom-20 right-0 h-96 w-96 rounded-full bg-cyan-300/20 blur-3xl" />
+      <div className="absolute inset-0 bg-slate-950/10" />
+    </div>
 
-        {/* =====================================================
-            LEFT BACKGROUND INFORMATION
-        ===================================================== */}
+    {/* PAGE LAYOUT */}
+    <div className="relative z-10 mx-auto flex min-h-full w-full max-w-[1900px] flex-col px-3 sm:px-5 lg:px-7 xl:px-10">
 
-        <div className="relative z-10 hidden h-full w-full lg:block">
-          {/* LOGOS */}
+      {/* BRAND HEADER - LEFT ON DESKTOP */}
+      <header className="flex shrink-0 justify-center py-3 lg:justify-start lg:py-3">
+        <div className="flex items-center gap-3 rounded-2xl bg-black/10 px-3 py-2 backdrop-blur-sm sm:gap-5 sm:px-4">
 
-          <div className="absolute left-10 top-7">
-            <div className="flex items-center gap-5 rounded-2xl bg-black/5 px-5 py-3 backdrop-blur-md">
-              <div className="flex h-16 w-40 items-center justify-center border-r border-white/25 pr-5">
-                <img
-                  src={Azuza}
-                  alt="Azuza Dialysis Center"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-
-              <div className="flex h-16 w-40 items-center justify-center">
-                <img
-                  src={Aegle}
-                  alt="Aegle Management"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-            </div>
+          <div className="flex h-11 w-28 items-center justify-center border-r border-white/25 pr-3 sm:h-12 sm:w-36 sm:pr-5">
+            <img
+              src={Azuza}
+              alt="Azuza Dialysis Center"
+              className="h-full w-full object-contain"
+            />
           </div>
 
-          {/* MAIN INFORMATION */}
-
-          <div
-            className="
-              absolute
-              left-10
-              top-1/2
-              w-full
-              max-w-[490px]
-              -translate-y-1/2
-            "
-          >
-            <div
-              className={`mb-5 h-1.5 w-16 rounded-full ${activeSlide.accent}`}
+          <div className="flex h-11 w-24 items-center justify-center sm:h-12 sm:w-32">
+            <img
+              src={Aegle}
+              alt="Aegle Management"
+              className="h-full w-full object-contain"
             />
+          </div>
+        </div>
+      </header>
 
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.20em] text-white/70">
+      {/* HERO + FORM */}
+      <div
+        className="
+          grid
+          w-full
+          flex-1
+          grid-cols-1
+          items-center
+          gap-4
+          py-2
+
+          lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]
+          lg:gap-6
+
+          xl:grid-cols-[minmax(0,1fr)_minmax(0,600px)]
+          xl:gap-8
+
+          2xl:grid-cols-[minmax(0,1fr)_minmax(0,650px)]
+          2xl:gap-12
+        "
+      >
+
+        {/* LEFT HERO */}
+        <section className="hidden min-w-0 items-center lg:flex">
+          <div className="max-w-[670px] text-white">
+
+            <div className={`mb-4 h-1.5 w-16 rounded-full ${activeSlide.accent}`} />
+
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-white/75 xl:text-sm">
               Intelligent Healthcare Management
             </p>
 
-            <h2
-              key={activeSlide.title}
-              className="
-                max-w-[470px]
-                text-4xl
-                font-black
-                leading-[1.08]
-                tracking-tight
-                text-white
-                xl:text-5xl
-              "
-            >
+            <h2 className="text-[clamp(27px,2.7vw,44px)] font-black leading-[1.15] tracking-tight">
               {activeSlide.title}
             </h2>
 
-            <p
-              key={activeSlide.text}
-              className="
-                mt-5
-                max-w-[470px]
-                text-base
-                leading-7
-                text-white/80
-                xl:text-lg
-              "
-            >
+            <p className="mt-5 max-w-[650px] text-sm leading-7 text-white/85 xl:text-base">
               {activeSlide.text}
             </p>
 
-            {/* FEATURES */}
-
-            <div className="mt-7 flex flex-wrap gap-2">
+            {/* BENEFITS */}
+            <div className="mt-6 flex flex-wrap gap-2">
               {[
                 'Secure Access',
                 'Role-based Access',
@@ -473,201 +483,85 @@ export default function Login() {
               ].map((feature) => (
                 <div
                   key={feature}
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    rounded-full
-                    border
-                    border-white/20
-                    bg-white/10
-                    px-4
-                    py-2
-                    text-xs
-                    font-semibold
-                    text-white
-                    backdrop-blur-xl
-                  "
+                  className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold backdrop-blur-md"
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
                     <CheckIcon />
                   </span>
-
                   {feature}
                 </div>
               ))}
             </div>
 
             {/* SLIDER DOTS */}
-
-            <div className="mt-8 flex items-center gap-2">
+            <div className="mt-7 flex items-center gap-2">
               {slides.map((item, index) => (
                 <button
                   key={item.title}
                   type="button"
                   onClick={() => setSlide(index)}
                   aria-label={`View slide ${index + 1}`}
-                  className={`
-                    h-2.5
-                    rounded-full
-                    transition-all
-                    duration-500
-                    ${
-                      index === slide
-                        ? 'w-10 bg-white'
-                        : 'w-2.5 bg-white/40 hover:bg-white/70'
-                    }
-                  `}
+                  className={`h-2.5 rounded-full transition-all ${
+                    index === slide
+                      ? 'w-10 bg-white'
+                      : 'w-2.5 bg-white/40 hover:bg-white/70'
+                  }`}
                 />
               ))}
             </div>
+
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* =====================================================
-          CENTER LOGIN
-      ===================================================== */}
+        {/* RIGHT LOGIN CARD */}
+        <section className="mx-auto w-full min-w-0 max-w-[650px] lg:ml-auto">
 
-      <section className="absolute inset-0 z-20 flex items-center justify-center px-4 py-5 sm:px-6">
-        <div className="w-full max-w-[650px]">
-          {/* MOBILE LOGOS */}
+          <div className="w-full rounded-[22px] border border-white/70 bg-[#f3f5f8] p-4 shadow-2xl sm:p-5 lg:p-[18px] xl:p-5">
 
-          <div className="mb-4 flex items-center justify-center gap-5 lg:hidden">
-            <div className="flex h-14 w-28 items-center justify-center border-r border-white/30 pr-4">
-              <img
-                src={Azuza}
-                alt="Azuza Dialysis Center"
-                className="h-full w-full object-contain"
-              />
-            </div>
-
-            <div className="flex h-14 w-28 items-center justify-center">
-              <img
-                src={Aegle}
-                alt="Aegle Management"
-                className="h-full w-full object-contain"
-              />
-            </div>
-          </div>
-
-          {/* =================================================
-              LOGIN CARD
-          ================================================= */}
-
-          <div
-            className="
-              rounded-[32px]
-              border
-              border-white/70
-              bg-white/95
-              p-7
-              shadow-[0_35px_100px_-25px_rgba(15,23,42,0.5)]
-              backdrop-blur-2xl
-              sm:p-9
-              xl:p-10
-              [@media(max-height:780px)]:p-7
-            "
-          >
-            {/* CARD HEADER */}
-
-            <div className="mb-7 [@media(max-height:780px)]:mb-5">
-              <div className="mb-5 flex items-center gap-4">
-                <div
-                  className="
-                    inline-flex
-                    h-14
-                    w-14
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-gradient-to-br
-                    from-blue-600
-                    to-cyan-500
-                    text-white
-                    shadow-lg
-                    shadow-blue-500/25
-                  "
-                >
-                  <ShieldIcon className="h-6 w-6" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-sm font-bold uppercase tracking-[0.12em] text-blue-600">
-                    Azuza Dialysis Center
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-400">
-                    Powered by Aegle Management
-                  </p>
-                </div>
+            {/* CLINIC HEADER */}
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#123B5D] text-white shadow-md">
+                <ShieldIcon />
               </div>
 
-              <h1 className="text-4xl font-black tracking-tight text-slate-900 xl:text-5xl">
-                Welcome back
-              </h1>
-
-              <p className="mt-2 max-w-lg text-base leading-7 text-slate-500 xl:text-lg">
-                Sign in securely to access your dialysis management dashboard.
-              </p>
-
-              {roleHintLabel && (
-                <div className="mt-4">
-                  <span
-                    className="
-                      inline-flex
-                      items-center
-                      rounded-xl
-                      border
-                      border-blue-100
-                      bg-blue-50
-                      px-4
-                      py-2
-                      text-sm
-                      font-bold
-                      text-blue-700
-                    "
-                  >
-                    Signing in as {roleHintLabel}
-                  </span>
-                </div>
-              )}
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[#123B5D]">
+                  Azuza Dialysis Center
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Powered by Aegle Management
+                </p>
+              </div>
             </div>
 
-            {/* =================================================
-                LOGIN FORM
-            ================================================= */}
+            <h1 className="text-[28px] font-black leading-tight tracking-tight text-slate-900 xl:text-[32px]">
+              Welcome back
+            </h1>
 
-            <form
-              onSubmit={submit}
-              className="space-y-5 [@media(max-height:780px)]:space-y-4"
-            >
+            <p className="mt-1 text-[13px] leading-5 text-slate-500">
+              Sign in securely to access your dialysis management dashboard.
+            </p>
+
+            {/* ROLE */}
+            {roleHintLabel && (
+              <div className="mt-3">
+                <span className="inline-flex max-w-full rounded-xl border border-blue-100 bg-blue-50 px-4 py-2 text-[13px] font-bold text-[#123B5D]">
+                  Signing in as {roleHintLabel}
+                </span>
+              </div>
+            )}
+
+            {/* LOGIN FORM */}
+            <form onSubmit={submit} className="mt-4 space-y-3">
+
               {/* EMAIL */}
-
               <div>
-                <label
-                  htmlFor="email"
-                  className="mb-2 block text-base font-semibold text-slate-700"
-                >
+                <label htmlFor="email" className="mb-1.5 block text-[13px] font-semibold text-slate-700">
                   Email address
                 </label>
 
                 <div className="group relative">
-                  <span
-                    className="
-                      pointer-events-none
-                      absolute
-                      inset-y-0
-                      left-0
-                      flex
-                      items-center
-                      pl-5
-                      text-slate-400
-                      transition-colors
-                      group-focus-within:text-blue-600
-                    "
-                  >
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 group-focus-within:text-blue-600">
                     <MailIcon />
                   </span>
 
@@ -675,67 +569,23 @@ export default function Login() {
                     id="email"
                     type="email"
                     value={form.email}
-                    onChange={(event) =>
-                      changeCredentials(
-                        'email',
-                        event.target.value
-                      )
-                    }
-                    autoComplete="email"
+                    onChange={(e) => changeCredentials('email', e.target.value)}
+                    autoComplete="username"
                     placeholder="name@example.com"
                     required
-                    className="
-                      w-full
-                      rounded-2xl
-                      border
-                      border-slate-200
-                      bg-slate-50
-                      py-4
-                      pl-14
-                      pr-5
-                      text-base
-                      font-medium
-                      text-slate-900
-                      outline-none
-                      transition-all
-                      placeholder:text-slate-400
-                      hover:border-slate-300
-                      focus:border-blue-500
-                      focus:bg-white
-                      focus:ring-4
-                      focus:ring-blue-500/10
-                      xl:py-[18px]
-                      xl:text-lg
-                    "
+                    className="block h-[46px] w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-base font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                   />
                 </div>
               </div>
 
               {/* PASSWORD */}
-
               <div>
-                <label
-                  htmlFor="password"
-                  className="mb-2 block text-base font-semibold text-slate-700"
-                >
+                <label htmlFor="password" className="mb-1.5 block text-[13px] font-semibold text-slate-700">
                   Password
                 </label>
 
                 <div className="group relative">
-                  <span
-                    className="
-                      pointer-events-none
-                      absolute
-                      inset-y-0
-                      left-0
-                      flex
-                      items-center
-                      pl-5
-                      text-slate-400
-                      transition-colors
-                      group-focus-within:text-blue-600
-                    "
-                  >
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 group-focus-within:text-blue-600">
                     <LockIcon />
                   </span>
 
@@ -743,63 +593,18 @@ export default function Login() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
-                    onChange={(event) =>
-                      changeCredentials(
-                        'password',
-                        event.target.value
-                      )
-                    }
+                    onChange={(e) => changeCredentials('password', e.target.value)}
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     required
-                    className="
-                      w-full
-                      rounded-2xl
-                      border
-                      border-slate-200
-                      bg-slate-50
-                      py-4
-                      pl-14
-                      pr-14
-                      text-base
-                      font-medium
-                      text-slate-900
-                      outline-none
-                      transition-all
-                      placeholder:text-slate-400
-                      hover:border-slate-300
-                      focus:border-blue-500
-                      focus:bg-white
-                      focus:ring-4
-                      focus:ring-blue-500/10
-                      xl:py-[18px]
-                      xl:text-lg
-                    "
+                    className="block h-[46px] w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-base font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                   />
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword(
-                        (current) => !current
-                      )
-                    }
-                    aria-label={
-                      showPassword
-                        ? 'Hide password'
-                        : 'Show password'
-                    }
-                    className="
-                      absolute
-                      inset-y-0
-                      right-0
-                      flex
-                      items-center
-                      px-5
-                      text-slate-400
-                      transition
-                      hover:text-blue-600
-                    "
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 hover:text-blue-600"
                   >
                     <EyeIcon hidden={showPassword} />
                   </button>
@@ -807,24 +612,18 @@ export default function Login() {
               </div>
 
               {/* MFA */}
-
               {mfaRequired && (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4">
-                  <div className="mb-3 flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-                      <ShieldIcon className="h-5 w-5" />
-                    </div>
-
-                    <div>
-                      <p className="text-base font-bold text-blue-950">
-                        Two-factor authentication
-                      </p>
-
-                      <p className="mt-0.5 text-sm leading-5 text-blue-700">
-                        Enter the 6-digit code from your authenticator app.
-                      </p>
-                    </div>
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <ShieldIcon className="h-5 w-5 text-blue-600" />
+                    <p className="text-sm font-bold text-blue-950">
+                      Two-factor authentication
+                    </p>
                   </div>
+
+                  <p className="mb-2 text-xs text-blue-700">
+                    Enter the 6-digit code from your authenticator app.
+                  </p>
 
                   <input
                     id="mfaToken"
@@ -833,156 +632,89 @@ export default function Login() {
                     maxLength={6}
                     placeholder="000000"
                     value={form.mfaToken}
-                    onChange={(event) =>
+                    onChange={(e) =>
                       updateField(
                         'mfaToken',
-                        event.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 6)
+                        e.target.value.replace(/\D/g, '').slice(0, 6)
                       )
                     }
                     autoFocus
                     required
-                    className="
-                      w-full
-                      rounded-2xl
-                      border
-                      border-blue-200
-                      bg-white
-                      px-4
-                      py-4
-                      text-center
-                      text-xl
-                      font-bold
-                      tracking-[0.45em]
-                      text-slate-900
-                      outline-none
-                      transition
-                      focus:border-blue-500
-                      focus:ring-4
-                      focus:ring-blue-500/10
-                    "
+                    className="h-12 w-full rounded-xl border border-blue-200 bg-white text-center text-xl font-bold tracking-[0.3em] outline-none focus:border-blue-500"
                   />
                 </div>
               )}
 
-              {/* LOGIN BUTTON */}
-
+              {/* SIGN IN BUTTON */}
               <button
                 type="submit"
-                disabled={
-                  loading ||
-                  (mfaRequired &&
-                    form.mfaToken.length !== 6)
-                }
-                className="
-                  group
-                  flex
-                  w-full
-                  items-center
-                  justify-center
-                  gap-3
-                  rounded-2xl
-                  bg-gradient-to-r
-                  from-blue-700
-                  via-blue-600
-                  to-cyan-500
-                  px-6
-                  py-4
-                  text-base
-                  font-bold
-                  text-white
-                  shadow-xl
-                  shadow-blue-500/25
-                  transition-all
-                  duration-300
-                  hover:-translate-y-0.5
-                  hover:shadow-2xl
-                  focus:outline-none
-                  focus:ring-4
-                  focus:ring-blue-500/20
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                  disabled:hover:translate-y-0
-                  xl:py-[18px]
-                  xl:text-lg
-                "
+                disabled={loading || (mfaRequired && form.mfaToken.length !== 6)}
+                className="flex min-h-[50px] w-full items-center justify-center gap-3 rounded-xl bg-[#123B5D] px-4 py-3 text-base font-bold text-white shadow-lg transition hover:bg-[#0f3151] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
-                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
-                    {mfaRequired
-                      ? 'Verifying code...'
-                      : 'Signing you in...'}
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    {mfaRequired ? 'Verifying code...' : 'Signing you in...'}
                   </>
                 ) : (
                   <>
-                    {mfaRequired
-                      ? 'Verify and continue'
-                      : 'Sign in securely'}
-
-                    <span className="transition-transform duration-300 group-hover:translate-x-1">
-                      <ArrowIcon />
-                    </span>
+                    {mfaRequired ? 'Verify and continue' : 'Sign in securely'}
+                    <ArrowIcon />
                   </>
                 )}
               </button>
             </form>
 
-            {/* ONE SECURITY MESSAGE ONLY */}
+            {/* DEMO ACCOUNTS - ALL 12 RESTORED */}
+            {import.meta.env.DEV && (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
 
-            <div
-              className="
-                mt-6
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                bg-slate-50
-                px-4
-                py-3
-                text-sm
-                text-slate-500
-              "
-            >
-              <ShieldIcon className="h-4 w-4 text-emerald-600" />
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Demo Accounts (Testing)
+                  </p>
 
-              <span>
-                Secure access for authorized clinic staff only
-              </span>
+                  <span className="text-[11px] text-slate-400">
+                    Development only
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {DEMO_ACCOUNTS.map((acc) => (
+                    <button
+                      key={acc.role}
+                      type="button"
+                      onClick={() => quickLogin(acc)}
+                      disabled={loading}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+                    >
+                      {acc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SECURITY NOTICE */}
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-center text-xs text-slate-500">
+              <ShieldIcon className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>Secure access for authorized clinic staff only</span>
             </div>
+
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      {/* =====================================================
-          SINGLE PAGE FOOTER
-      ===================================================== */}
-
-      <div
-        className="
-          absolute
-          bottom-4
-          left-1/2
-          z-30
-          hidden
-          -translate-x-1/2
-          items-center
-          gap-2
-          whitespace-nowrap
-          text-xs
-          text-white/70
-          lg:flex
-        "
-      >
-        <ShieldIcon className="h-4 w-4" />
-
+      {/* FOOTER */}
+      <footer className="flex shrink-0 items-center justify-center gap-2 px-2 py-2 text-center text-[11px] leading-5 text-white/70">
+        <ShieldIcon className="h-4 w-4 shrink-0" />
         <span>
           © {new Date().getFullYear()} Azuza Dialysis Center · Powered by Aegle Management
         </span>
-      </div>
-    </main>
-  );
+      </footer>
+
+    </div>
+  </main>
+);
+
 }

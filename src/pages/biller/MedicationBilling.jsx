@@ -6,6 +6,8 @@ import EmptyState from '../../components/common/EmptyState';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination, { usePagedList } from '../../components/common/Pagination';
 import { medicationApi } from '../../api/medicationApi';
+import { sessionApi } from '../../api/sessionApi';
+import SessionDetailModal from '../../components/common/SessionDetailModal';
 import { dateOnly } from '../../utils/format';
 
 const now = new Date();
@@ -18,6 +20,17 @@ export default function MedicationBilling() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState(null); // grouped patient being viewed
+  const [detailSession, setDetailSession] = useState(null);
+
+  const openSession = async (sessionId) => {
+    if (!sessionId) { toast.error('No session linked to this medication'); return; }
+    try {
+      const res = await sessionApi.get(sessionId);
+      setDetailSession(res.data?.data || null);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Could not load session');
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -112,6 +125,9 @@ export default function MedicationBilling() {
                               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{r.route}</span>
                               <span className="text-xs text-slate-500">{r.nurse}</span>
                               <StatusBadge status={r.billingStatus} />
+                              {r.sessionId && (
+                                <button type="button" onClick={() => openSession(r.sessionId)} className="rounded border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700 hover:bg-blue-50">Session</button>
+                              )}
                             </div>
                           );
                         })}
@@ -124,6 +140,8 @@ export default function MedicationBilling() {
           </div>
         </div>
       )}
+
+      {detailSession && <SessionDetailModal session={detailSession} onClose={() => setDetailSession(null)} />}
     </div>
   );
 }

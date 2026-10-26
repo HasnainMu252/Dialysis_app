@@ -2,15 +2,17 @@ import StatusBadge from '../ui/StatusBadge';
 import PatientBioPanel from './PatientBioPanel';
 import { dateOnly } from '../../utils/format';
 
+const PHASE_LABELS = { before: 'Pre Dialysis', during: 'Intra-dialytic', after: 'Post Dialysis' };
+
 const VitalsTable = ({ vitals = [] }) => (
   <div className="overflow-x-auto rounded-xl border">
     <table className="w-full text-sm">
       <thead className="bg-slate-50 text-left text-slate-500">
-        <tr><th className="p-3">Phase</th><th>BP</th><th>HR</th><th>Temp</th><th>Weight</th><th>SPO2</th><th>Recorded</th></tr>
+        <tr><th className="p-3">Phase</th><th>BP</th><th>HR</th><th>Temp</th><th>Weight</th><th>SPO2</th><th>Δ Weight</th><th>Recorded</th></tr>
       </thead>
       <tbody>
-        {vitals.map((v) => <tr className="border-t" key={v._id || `${v.phase}-${v.recordedAt}`}><td className="p-3 capitalize">{v.phase}</td><td>{v.bloodPressure || '-'}</td><td>{v.heartRate || '-'}</td><td>{v.temperature || '-'}</td><td>{v.weight || '-'}</td><td>{v.spo2 || '-'}</td><td>{dateOnly(v.recordedAt)}</td></tr>)}
-        {!vitals.length && <tr><td className="p-3 text-slate-500" colSpan="7">No vitals recorded.</td></tr>}
+        {vitals.map((v) => <tr className="border-t" key={v._id || `${v.phase}-${v.recordedAt}`}><td className="p-3">{PHASE_LABELS[v.phase] || v.phase}</td><td>{v.bloodPressure || '-'}</td><td>{v.heartRate || '-'}</td><td>{v.temperature || '-'}</td><td>{v.weight || '-'}</td><td>{v.spo2 || '-'}</td><td>{v.deltaWeight ?? '-'}</td><td>{dateOnly(v.recordedAt)}</td></tr>)}
+        {!vitals.length && <tr><td className="p-3 text-slate-500" colSpan="8">No vitals recorded.</td></tr>}
       </tbody>
     </table>
   </div>

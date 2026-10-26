@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import toast from 'react-hot-toast';
@@ -15,6 +16,7 @@ import {
   X, ShieldCheck } from 'lucide-react';
 
 import { sessionApi } from '../../api/sessionApi';
+import { patientApi } from '../../api/patientApi';
 import {
   medicationApi,
   MEDICATION_ROUTES,
@@ -35,7 +37,9 @@ import {
   canManageDialysisMedication,
   canAddSessionNote,
 } from '../../utils/permissions';
-import { personName } from '../../utils/format';
+import { personName, dateOnly } from '../../utils/format';
+import { accessTypeLabel } from '../../constants/vascularAccess';
+import { accessAge } from '../../utils/accessAge';
 
 import NoteAuthor from '../../components/common/NoteAuthor';
 import MedicationCard from '../../components/workflow/MedicationCard';
@@ -44,6 +48,8 @@ import WorkflowActionModal from '../../components/workflow/WorkflowActionModal';
 import { Pill, FileText, ClipboardList, Home as HomeIcon } from 'lucide-react';
 import SessionNotesCard from '../../components/workflow/SessionNotesCard';
 import NurseReviewCard from '../../components/workflow/NurseReviewCard';
+import FlowSheetCard from '../../components/workflow/FlowSheetCard';
+import Portal from '../../components/common/Portal';
 import LabPanel from '../../components/common/LabPanel';
 import DialysisPrescriptionViewer from '../../components/common/DialysisPrescriptionViewer';
 import CannulationChecklistModal from '../../components/common/CannulationChecklistModal';
@@ -61,6 +67,27 @@ const BLANK_VITALS = {
   temperature: '',
   weight: '',
   spo2: '',
+  sittingBp: '',
+  standingBp: '',
+  sittingHeartRate: '',
+  standingHeartRate: '',
+  preWeight: '',
+  postWeight: '',
+};
+
+// before = Pre Dialysis, during = Intra-dialytic, after = Post Dialysis
+const VITALS_PHASES = [
+  { value: 'before', label: 'Pre Dialysis' },
+  { value: 'during', label: 'Intra-dialytic' },
+  { value: 'after', label: 'Post Dialysis' },
+];
+
+// Fluid removed over the treatment (pre − post dialysis weight).
+const computeDelta = (pre, post) => {
+  const p = Number(pre);
+  const q = Number(post);
+  if (!Number.isFinite(p) || !Number.isFinite(q) || pre === '' || post === '') return '';
+  return Math.round((p - q) * 100) / 100;
 };
 
 const BLANK_SOAP = {
@@ -135,6 +162,27 @@ const getSessionDate = (session) =>
   session?.scheduledDate ||
   session?.date ||
   session?.createdAt;
+
+// Resolve the patient's access type from every place it may live (same order as
+// the patient bio): the vascular-access record, this session's flow-sheet
+// evaluation, technician notes, legacy fistula/catheter lines, then medical history.
+const FLOW_ACCESS_LABELS = { permacath: 'Permacath', av_fistula: 'AV Fistula', av_graft: 'AV Graft' };
+const resolveAccessType = (session) => {
+  const p = session?.patient || {};
+  const va = p.vascularAccess || {};
+  const vaType = accessTypeLabel(va.accessType);
+  if (vaType) return vaType;
+  const et = session?.flowSheet?.accessEvaluation?.type;
+  if (et && FLOW_ACCESS_LABELS[et]) return FLOW_ACCESS_LABELS[et];
+  const notes = [...(session?.technicianNotes || [])].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const n = notes.find((x) => x.accessType && x.accessType !== 'Not applicable');
+  if (n) return n.accessType === 'Other' && n.accessOther ? n.accessOther : n.accessType;
+  if (va.fistula?.type) return va.fistula.type;
+  if (va.catheter?.type) return va.catheter.type;
+  return p.medicalHistory?.accessType || '';
+};
+const accessPlacement = (p = {}) => p.vascularAccess?.placementDate || p.vascularAccess?.fistula?.placementDate || p.vascularAccess?.catheter?.placementDate;
+const accessAgeText = (p = {}) => p.vascularAccess?.ageText || p.vascularAccess?.fistula?.ageText || p.vascularAccess?.catheter?.ageText || '';
 
 const toValidDate = (value) => {
   if (!value) return null;
@@ -235,6 +283,7 @@ export default function TreatmentWorkflow() {
 
   const [sessions, setSessions] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [selPatient, setSelPatient] = useState(null); // full patient (with current vascularAccess) for the open session
 
   const [view, setView] = useState('scheduled');
   const [status, setStatus] = useState('');
@@ -254,6 +303,7 @@ export default function TreatmentWorkflow() {
 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [flowSheetOpen, setFlowSheetOpen] = useState(false);
 
   const [vitals, setVitals] = useState({ ...BLANK_VITALS });
   const [soap, setSoap] = useState({ ...BLANK_SOAP });
@@ -378,6 +428,38 @@ export default function TreatmentWorkflow() {
     },
     [loadSelectedSessionData, resetSessionForms]
   );
+
+  // Load the selected patient's live record (vascular access, medical history) so
+  // the access type / age / last-maintained always reflect the bio, even if the
+  // session's populated copy is stale.
+  useEffect(() => {
+    const pid = selected?.patient?._id || selected?.patient;
+    if (!pid) { setSelPatient(null); return; }
+    let live = true;
+    patientApi.get(pid)
+      .then((r) => { if (live) setSelPatient(r.data?.data || r.data || null); })
+      .catch(() => { if (live) setSelPatient(null); });
+    return () => { live = false; };
+  }, [selected]);
+
+  // Deep-link: open a specific patient/session when arriving from another screen
+  // (e.g. a nurse clicking a patient in Today's Schedule → ?patient=<id>).
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || !sessions.length) return;
+    const wantSession = searchParams.get('session');
+    const wantPatient = searchParams.get('patient');
+    if (!wantSession && !wantPatient) return;
+    const match = sessions.find(
+      (s) =>
+        (wantSession && s._id === wantSession) ||
+        (wantPatient && String(s.patient?._id || s.patient) === String(wantPatient))
+    );
+    if (match) {
+      autoSelectedRef.current = true;
+      openSession(match);
+    }
+  }, [sessions, searchParams, openSession]);
 
   const refreshSession = useCallback(
     async (sessionId) => {
@@ -673,14 +755,24 @@ export default function TreatmentWorkflow() {
         ...vitals,
         heartRate: numericValue(vitals.heartRate),
         temperature: numericValue(vitals.temperature),
-        weight: numericValue(vitals.weight),
+        weight: numericValue(vitals.preWeight),
         spo2: numericValue(vitals.spo2),
+        sittingHeartRate: numericValue(vitals.sittingHeartRate),
+        standingHeartRate: numericValue(vitals.standingHeartRate),
+        preWeight: numericValue(vitals.preWeight),
+        postWeight: numericValue(vitals.postWeight),
+        deltaWeight: numericValue(computeDelta(vitals.preWeight, vitals.postWeight)),
       })
     );
 
   const saveSoap = () =>
     action('SOAP saved', () =>
       sessionApi.soap(selected._id, soap)
+    );
+
+  const saveFlowSheet = (data) =>
+    action('Flow sheet saved', () =>
+      sessionApi.flowSheet(selected._id, data)
     );
 
   const isTechnician = user?.role === 'technician';
@@ -1031,7 +1123,7 @@ export default function TreatmentWorkflow() {
       />
 
       <section className="card p-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="inline-flex w-full rounded-2xl bg-slate-100 p-1 sm:w-auto">
             <button
               type="button"
@@ -1096,8 +1188,8 @@ export default function TreatmentWorkflow() {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2 xl:grid-cols-5">
-          <div className="relative xl:col-span-2">
+        <div className="mt-3 grid grid-cols-1 items-end gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
+          <div className="relative min-w-0 lg:col-span-2">
             <Search
               size={17}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1137,7 +1229,7 @@ export default function TreatmentWorkflow() {
               ))}
           </select>
 
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div className="min-w-0">
             <FieldLabel>Shift</FieldLabel>
             <div className="flex flex-wrap gap-1.5">
               {[['', 'All'], ['1', '1st'], ['2', '2nd'], ['3', '3rd']].map(([val, lbl]) => (
@@ -1156,7 +1248,7 @@ export default function TreatmentWorkflow() {
             </div>
           </div>
 
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div className="min-w-0">
             <FieldLabel>Days</FieldLabel>
             <div className="flex flex-wrap gap-1.5">
               {[['', 'All'], ['mwf', 'MWF'], ['tts', 'TTS']].map(([val, lbl]) => (
@@ -1201,8 +1293,8 @@ export default function TreatmentWorkflow() {
         </div>
       </section>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <aside className="space-y-3 xl:sticky xl:top-5">
+      <div className="grid w-full min-w-0 grid-cols-1 items-start gap-4 md:grid-cols-[minmax(220px,32%)_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[350px_minmax(0,1fr)]">
+        <aside className="min-w-0 space-y-3 md:sticky md:top-4 md:self-start">
           <div className="flex items-center justify-between px-1">
             <div>
               <h2 className="font-extrabold text-slate-900">
@@ -1219,7 +1311,7 @@ export default function TreatmentWorkflow() {
             </div>
           </div>
 
-          <div className="max-h-[calc(100vh-260px)] space-y-3 overflow-y-auto pr-1">
+          <div className="max-h-[450px] space-y-3 overflow-y-auto pr-1 md:max-h-[calc(100dvh-180px)]">
             {loading && sessions.length === 0 ? (
               <LoadingSessionCards />
             ) : (
@@ -1305,7 +1397,7 @@ export default function TreatmentWorkflow() {
           </div>
         </aside>
 
-        <main className="min-w-0">
+        <main className="w-full min-w-0">
           {!selected ? (
             <div className="card flex min-h-[420px] items-center justify-center p-6">
               <EmptyState message="Select a session from the left to manage its treatment workflow" />
@@ -1313,11 +1405,19 @@ export default function TreatmentWorkflow() {
           ) : (
             <div className="space-y-5">
               <section className="card p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-3">
                   <div>
-                    <h2 className="text-xl font-extrabold text-slate-900">
-                      {personName(selected.patient)}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-extrabold text-slate-900">
+                        {personName(selected.patient)}
+                      </h2>
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-[#087E8B] px-2.5 py-1 text-xs font-bold text-white">
+                        Station {selected.chair?.code || selected.chair?.chairNumber || selected.schedule?.chairCode || '—'}
+                      </span>
+                      {selected.status && (
+                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-600">{String(selected.status).replace('_', ' ')}</span>
+                      )}
+                    </div>
 
                     <p className="mt-1 text-sm text-slate-500">
                       MRN {selected.patient?.mrn || '—'}
@@ -1357,16 +1457,17 @@ export default function TreatmentWorkflow() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col items-end gap-2">
-                    <StatusBadge
-                      status={selected.status}
-                    />
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <div className="relative">
+                  {/* Status and treatment shortcuts */}
+                  <div className="flex w-full min-w-0 flex-col gap-2">
+                    <div className="flex justify-end">
+                      <StatusBadge status={selected.status} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="relative min-w-0">
                         <button
                           type="button"
-                          className="btn-light inline-flex items-center gap-2"
                           onClick={() => setChecklistOpen(true)}
+                          className="btn-light inline-flex h-10 w-full items-center justify-center rounded-xl px-2 text-xs font-bold sm:text-[11px] xl:text-xs"
                         >
                           Cannulation Instruction
                         </button>
@@ -1374,7 +1475,7 @@ export default function TreatmentWorkflow() {
                           <span className="pointer-events-none absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-red-500 ring-2 ring-white" />
                         )}
                       </div>
-                      <div className="relative">
+                      <div className="relative min-w-0 [&_button]:!flex [&_button]:!h-10 [&_button]:!w-full [&_button]:!items-center [&_button]:!justify-center [&_button]:!gap-1 [&_button]:!rounded-xl [&_button]:!px-2 [&_button]:!text-xs">
                         <DialysisPrescriptionViewer
                           patientId={selected?.patient?._id || selected?.patient}
                           buttonClassName="btn-primary"
@@ -1384,6 +1485,14 @@ export default function TreatmentWorkflow() {
                           <span className="pointer-events-none absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-red-500 ring-2 ring-white" />
                         )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setFlowSheetOpen(true)}
+                        className="inline-flex h-10 min-w-0 w-full items-center justify-center gap-1.5 rounded-xl bg-[#123B5D] px-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f3151]"
+                      >
+                        <ClipboardList size={16} className="shrink-0" />
+                        Open Flow Sheet
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1479,6 +1588,34 @@ export default function TreatmentWorkflow() {
                       </span>
                       <b className="mt-1 block font-mono">
                         {selected.schedule?.sessionCode || '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Access type
+                      </span>
+                      <b className="mt-1 block">
+                        {resolveAccessType({ ...selected, patient: selPatient || selected.patient }) || '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Access age
+                      </span>
+                      <b className="mt-1 block">
+                        {accessAge(accessPlacement(selPatient || selected.patient), accessAgeText(selPatient || selected.patient)) || '—'}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="block font-semibold text-slate-400">
+                        Access last maintained
+                      </span>
+                      <b className="mt-1 block">
+                        {(selPatient || selected.patient)?.vascularAccess?.lastAssessmentDate
+                          ? dateOnly((selPatient || selected.patient).vascularAccess.lastAssessmentDate)
+                          : (accessPlacement(selPatient || selected.patient)
+                            ? dateOnly(accessPlacement(selPatient || selected.patient))
+                            : '—')}
                       </b>
                     </div>
                   </div>
@@ -1580,15 +1717,13 @@ export default function TreatmentWorkflow() {
                         className="btn-primary"
                         disabled={actionLoading || !ready}
                         title={ready ? '' : 'Open the checklist and prescription first'}
-                        onClick={() =>
-                          action(
+                        onClick={async () => {
+                          const ok = await action(
                             'Treatment started',
-                            () =>
-                              sessionApi.start(
-                                selected._id
-                              )
-                          )
-                        }
+                            () => sessionApi.start(selected._id)
+                          );
+                          if (ok) setFlowSheetOpen(true); // flow sheet pops up on start
+                        }}
                       >
                         {actionLoading
                           ? 'Processing...'
@@ -1648,111 +1783,71 @@ export default function TreatmentWorkflow() {
                               }))
                             }
                           >
-                            <option value="before">
-                              Before treatment
-                            </option>
-                            <option value="during">
-                              During treatment
-                            </option>
-                            <option value="after">
-                              After treatment
-                            </option>
+                            {VITALS_PHASES.map((p) => (
+                              <option key={p.value} value={p.value}>
+                                {p.label}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
+                        {/* Pre + Intra-dialytic + Post all capture these base fields */}
                         <div>
-                          <FieldLabel>
-                            Blood pressure
-                          </FieldLabel>
-                          <input
-                            className="input"
-                            placeholder="120/80"
-                            value={
-                              vitals.bloodPressure
-                            }
-                            onChange={(event) =>
-                              setVitals((current) => ({
-                                ...current,
-                                bloodPressure:
-                                  event.target.value,
-                              }))
-                            }
-                          />
+                          <FieldLabel>Blood pressure (mmHg)</FieldLabel>
+                          <input className="input" placeholder="120/80" value={vitals.bloodPressure} onChange={(e) => setVitals((c) => ({ ...c, bloodPressure: e.target.value }))} />
                         </div>
-
                         <div>
-                          <FieldLabel>
-                            Heart rate
-                          </FieldLabel>
-                          <input
-                            className="input"
-                            type="number"
-                            placeholder="BPM"
-                            value={vitals.heartRate}
-                            onChange={(event) =>
-                              setVitals((current) => ({
-                                ...current,
-                                heartRate:
-                                  event.target.value,
-                              }))
-                            }
-                          />
+                          <FieldLabel>Heart rate (BPM)</FieldLabel>
+                          <input className="input" type="number" placeholder="BPM" value={vitals.heartRate} onChange={(e) => setVitals((c) => ({ ...c, heartRate: e.target.value }))} />
                         </div>
-
                         <div>
-                          <FieldLabel>
-                            Temperature
-                          </FieldLabel>
-                          <input
-                            className="input"
-                            type="number"
-                            step="0.1"
-                            placeholder="°F / °C"
-                            value={vitals.temperature}
-                            onChange={(event) =>
-                              setVitals((current) => ({
-                                ...current,
-                                temperature:
-                                  event.target.value,
-                              }))
-                            }
-                          />
+                          <FieldLabel>Temperature (°F / °C)</FieldLabel>
+                          <input className="input" type="number" step="0.1" placeholder="°F / °C" value={vitals.temperature} onChange={(e) => setVitals((c) => ({ ...c, temperature: e.target.value }))} />
                         </div>
-
                         <div>
-                          <FieldLabel>Weight</FieldLabel>
-                          <input
-                            className="input"
-                            type="number"
-                            step="0.1"
-                            placeholder="kg"
-                            value={vitals.weight}
-                            onChange={(event) =>
-                              setVitals((current) => ({
-                                ...current,
-                                weight:
-                                  event.target.value,
-                              }))
-                            }
-                          />
+                          <FieldLabel>Pre Weight (kg)</FieldLabel>
+                          <input className="input" type="number" step="0.1" placeholder="kg" value={vitals.preWeight} onChange={(e) => setVitals((c) => ({ ...c, preWeight: e.target.value }))} />
                         </div>
-
                         <div className="sm:col-span-2">
-                          <FieldLabel>SPO2</FieldLabel>
-                          <input
-                            className="input"
-                            type="number"
-                            placeholder="%"
-                            value={vitals.spo2}
-                            onChange={(event) =>
-                              setVitals((current) => ({
-                                ...current,
-                                spo2:
-                                  event.target.value,
-                              }))
-                            }
-                          />
+                          <FieldLabel>SPO2 (%)</FieldLabel>
+                          <input className="input" type="number" placeholder="%" value={vitals.spo2} onChange={(e) => setVitals((c) => ({ ...c, spo2: e.target.value }))} />
                         </div>
+
+                        {/* Post Dialysis adds post weight, delta, and sitting/standing readings */}
+                        {vitals.phase === 'after' && (
+                          <>
+                            <div className="sm:col-span-2 mt-1 border-t border-slate-100 pt-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Post-dialysis</p>
+                            </div>
+                            <div>
+                              <FieldLabel>Post Weight (kg)</FieldLabel>
+                              <input className="input" type="number" step="0.1" placeholder="kg" value={vitals.postWeight} onChange={(e) => setVitals((c) => ({ ...c, postWeight: e.target.value }))} />
+                            </div>
+                            <div>
+                              <FieldLabel>Delta Weight (kg) — fluid removed</FieldLabel>
+                              <input className="input bg-slate-50 font-bold" readOnly value={computeDelta(vitals.preWeight, vitals.postWeight)} placeholder="auto = pre − post" />
+                            </div>
+                            <div className="sm:col-span-2 mt-1 border-t border-slate-100 pt-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sitting / Standing readings</p>
+                            </div>
+                            <div>
+                              <FieldLabel>Sitting BP (mmHg)</FieldLabel>
+                              <input className="input" placeholder="120/80" value={vitals.sittingBp} onChange={(e) => setVitals((c) => ({ ...c, sittingBp: e.target.value }))} />
+                            </div>
+                            <div>
+                              <FieldLabel>Standing BP (mmHg)</FieldLabel>
+                              <input className="input" placeholder="120/80" value={vitals.standingBp} onChange={(e) => setVitals((c) => ({ ...c, standingBp: e.target.value }))} />
+                            </div>
+                            <div>
+                              <FieldLabel>Sitting Heart Rate (BPM)</FieldLabel>
+                              <input className="input" type="number" placeholder="BPM" value={vitals.sittingHeartRate} onChange={(e) => setVitals((c) => ({ ...c, sittingHeartRate: e.target.value }))} />
+                            </div>
+                            <div>
+                              <FieldLabel>Standing Heart Rate (BPM)</FieldLabel>
+                              <input className="input" type="number" placeholder="BPM" value={vitals.standingHeartRate} onChange={(e) => setVitals((c) => ({ ...c, standingHeartRate: e.target.value }))} />
+                            </div>
+                          </>
+                        )}
 
                         <button
                           type="button"
@@ -1881,6 +1976,7 @@ export default function TreatmentWorkflow() {
                     </section>
                   </div>
 
+
 {/* Treatment actions: buttons open focused popups (simpler view) */}
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {allowMeds && (
@@ -1890,7 +1986,7 @@ export default function TreatmentWorkflow() {
                         className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 hover:shadow-md"
                       >
                         <Pill size={22} />
-                        <span className="text-sm">Medication Administration</span>
+                        <span className="text-sm">Dialysis Medications</span>
                         <span className="text-xs font-semibold text-slate-400">{sessionMeds.length} recorded</span>
                       </button>
                     )}
@@ -1931,7 +2027,7 @@ export default function TreatmentWorkflow() {
 
                   <WorkflowActionModal
                     open={actionModal === 'meds'}
-                    title="Medication Administration"
+                    title="Dialysis Medications"
                     icon={Pill}
                     onClose={() => setActionModal(null)}
                   >
@@ -2162,6 +2258,9 @@ export default function TreatmentWorkflow() {
               )}
 
               {isCompleted && (
+                <>
+                <FlowSheetCard session={selected} canEdit={false} />
+
                 <section className="card space-y-5 p-5">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900">
@@ -2305,10 +2404,8 @@ export default function TreatmentWorkflow() {
                               className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600"
                             >
                               <b>
-                                {formatStatusLabel(
-                                  vital.phase ||
-                                    'record'
-                                )}
+                                {(VITALS_PHASES.find((p) => p.value === vital.phase) || {}).label
+                                  || formatStatusLabel(vital.phase || 'record')}
                                 :
                               </b>{' '}
                               BP{' '}
@@ -2322,6 +2419,17 @@ export default function TreatmentWorkflow() {
                               • Weight{' '}
                               {vital.weight || '—'} •
                               SPO2 {vital.spo2 || '—'}
+                              {(vital.sittingBp || vital.standingBp) && (
+                                <span className="block text-xs text-slate-500">
+                                  Sitting BP {vital.sittingBp || '—'} • Standing BP {vital.standingBp || '—'}
+                                  {' • '}Sitting HR {vital.sittingHeartRate || '—'} • Standing HR {vital.standingHeartRate || '—'}
+                                </span>
+                              )}
+                              {(vital.preWeight || vital.postWeight || vital.deltaWeight) && (
+                                <span className="block text-xs text-slate-500">
+                                  Pre {vital.preWeight || '—'} kg • Post {vital.postWeight || '—'} kg • Δ {vital.deltaWeight ?? '—'} kg
+                                </span>
+                              )}
                             </div>
                           )
                         )}
@@ -2438,6 +2546,7 @@ export default function TreatmentWorkflow() {
                     </div>
                   )}
                 </section>
+                </>
               )}
 
               {/* Mounted once for any selected session, regardless of status,
@@ -2450,6 +2559,22 @@ export default function TreatmentWorkflow() {
                   setChecklistOpen(false);
                 }}
               />
+
+              {flowSheetOpen && (
+                <Portal>
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setFlowSheetOpen(false)}>
+                    <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-5 py-4">
+                        <h3 className="text-lg font-extrabold text-slate-900">Flow Sheet</h3>
+                        <button type="button" onClick={() => setFlowSheetOpen(false)} className="rounded-full px-2 text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                      </div>
+                      <div className="p-5">
+                        <FlowSheetCard session={selected} onSave={saveFlowSheet} saving={actionLoading} canEdit />
+                      </div>
+                    </div>
+                  </div>
+                </Portal>
+              )}
             </div>
           )}
         </main>

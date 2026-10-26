@@ -59,15 +59,22 @@ export const createChairClearance = asyncHandler(async (req, res) => {
 
   const checklist = buildChecklist(req.body);
   const notes = req.body.notes || '';
+  const MAINT_TYPES = ['Routine clean', 'Issue report', 'Repair', 'Calibration', 'Filter change', 'Other'];
+  const maintenanceType = MAINT_TYPES.includes(req.body.maintenanceType) ? req.body.maintenanceType : 'Routine clean';
 
   const clearance = await ChairClearance.create({
     chair: chair._id,
     chairCode: chair.code || chair.chairNumber,
     status,
+    maintenanceType,
     checklist,
     notes,
     clearedBy: req.user?._id,
+    clearedByName: req.user?.name,
+    clearedByRole: req.user?.role,
     clearedAt: new Date(),
+    // An issue report or a non-available status is an open item for Biomed to resolve.
+    resolved: status === 'available' && maintenanceType === 'Routine clean',
   });
 
   chair.status = status;
@@ -118,6 +125,30 @@ export const createChairClearance = asyncHandler(async (req, res) => {
       conditionNotes: chair.conditionNotes,
     },
   });
+});
+
+export const resolveChairClearance = asyncHandler(async (req, res) => {
+  const record = await ChairClearance.findById(req.params.id);
+  if (!record) {
+    return res.status(404).json({ success: false, message: 'Maintenance record not found' });
+  }
+
+  record.resolved = true;
+  record.resolvedBy = req.user?._id;
+  record.resolvedByName = req.user?.name;
+  record.resolvedAt = new Date();
+  await record.save();
+
+  await writeAudit({
+    user: req.user,
+    action: 'chair.clearance.resolve',
+    entity: 'ChairClearance',
+    entityId: record._id,
+    details: { chairCode: record.chairCode },
+  });
+
+  const populated = await ChairClearance.findById(record._id).populate('chair clearedBy resolvedBy');
+  res.json({ success: true, message: 'Maintenance marked as handled', data: populated });
 });
 
 export const listChairClearances = asyncHandler(async (req, res) => {

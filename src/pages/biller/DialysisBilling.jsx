@@ -5,6 +5,8 @@ import EmptyState from '../../components/common/EmptyState';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination, { usePagedList } from '../../components/common/Pagination';
 import { reportApi } from '../../api/reportApi';
+import { sessionApi } from '../../api/sessionApi';
+import SessionDetailModal from '../../components/common/SessionDetailModal';
 import { dateOnly } from '../../utils/format';
 
 const now = new Date();
@@ -16,6 +18,21 @@ export default function DialysisBilling() {
   const [year, setYear] = useState(now.getFullYear());
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [detailSession, setDetailSession] = useState(null);
+  const [opening, setOpening] = useState(null);
+
+  const openDetail = async (sessionId) => {
+    if (!sessionId) { toast.error('No session linked to this row'); return; }
+    setOpening(sessionId);
+    try {
+      const res = await sessionApi.get(sessionId);
+      setDetailSession(res.data?.data || null);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Could not load session');
+    } finally {
+      setOpening(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -45,7 +62,7 @@ export default function DialysisBilling() {
       <div className="card overflow-x-auto p-0">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
-            <tr><th className="px-4 py-3">Patient</th><th className="px-4 py-3">Station</th><th className="px-4 py-3">Treatment Date</th><th className="px-4 py-3">Duration</th><th className="px-4 py-3">Treatment Count</th><th className="px-4 py-3">Billing Status</th></tr>
+            <tr><th className="px-4 py-3">Patient</th><th className="px-4 py-3">Station</th><th className="px-4 py-3">Treatment Date</th><th className="px-4 py-3">Duration</th><th className="px-4 py-3">Treatment Count</th><th className="px-4 py-3">Billing Status</th><th className="px-4 py-3 text-right">Detail</th></tr>
           </thead>
           <tbody className="divide-y">
             {paged.map((r) => (
@@ -56,6 +73,11 @@ export default function DialysisBilling() {
                 <td className="whitespace-nowrap px-4 py-3">{r.durationMinutes != null ? `${r.durationMinutes} min` : '-'}</td>
                 <td className="whitespace-nowrap px-4 py-3">{r.treatmentCount}</td>
                 <td className="whitespace-nowrap px-4 py-3"><StatusBadge status={r.billingStatus} /></td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <button type="button" onClick={() => openDetail(r.sessionId)} disabled={opening === r.sessionId} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                    {opening === r.sessionId ? 'Loading…' : 'Session detail'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -63,6 +85,8 @@ export default function DialysisBilling() {
         {!rows.length && !loading && <EmptyState message="No completed dialysis sessions for this period" />}
         <div className="p-2"><Pagination page={page} pageCount={pageCount} total={total} onPage={setPage} label="sessions" /></div>
       </div>
+
+      {detailSession && <SessionDetailModal session={detailSession} onClose={() => setDetailSession(null)} />}
     </div>
   );
 }

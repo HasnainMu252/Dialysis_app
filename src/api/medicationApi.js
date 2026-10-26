@@ -19,10 +19,12 @@ export const COMMON_UNITS = ['mg', 'mcg', 'ml', 'IU', 'Units', 'min'];
 /* Vascular access options for technician session notes. */
 export const ACCESS_TYPES = ['Fistula', 'Graft', 'Catheter', 'AV Fistula', 'AV Graft', 'Other'];
 
+// Access types used in the treatment / session flow — same full list for every
+// role that records it (nurse, technician, etc). "Other" opens a free-text field.
+export const TREATMENT_ACCESS_TYPES = ['Fistula', 'AV Graft', 'Non-tunnel catheter', 'Tunnel catheter', 'Not applicable', 'Other'];
+
 /* Role-specific vascular-access presets (all include "Other" -> free text). */
-export const NURSE_ACCESS_TYPES = ['Catheter', 'Tunnel', 'Quinton', 'Other'];
-export const TECH_ACCESS_TYPES = ['AV', 'Fistula', 'AV Graft', 'Other'];
-export const accessTypesForRole = (role) =>
-  role === 'technician' ? TECH_ACCESS_TYPES
-  : role === 'nurse' ? NURSE_ACCESS_TYPES
-  : Array.from(new Set([...NURSE_ACCESS_TYPES, ...TECH_ACCESS_TYPES]));
+export const NURSE_ACCESS_TYPES = TREATMENT_ACCESS_TYPES;
+export const TECH_ACCESS_TYPES = TREATMENT_ACCESS_TYPES;
+// Every role that uses the treatment flow sees the same full access-type list.
+export const accessTypesForRole = () => TREATMENT_ACCESS_TYPES;

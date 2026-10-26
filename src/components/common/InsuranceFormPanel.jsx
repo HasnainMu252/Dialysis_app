@@ -428,7 +428,7 @@ export default function InsuranceFormPanel({ patient }) {
   return <div className="space-y-5">
     {viewerDoc && <FileViewerModal document={viewerDoc} onClose={() => setViewerDoc(null)} />}
 
-    <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 via-cyan-600 to-emerald-500 p-5 text-white shadow-xl shadow-blue-200">
+    <section className="overflow-hidden rounded-3xl bg-[#123B5D] p-5 text-white shadow-xl shadow-blue-200">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="mb-2 text-xs font-black uppercase tracking-wide text-blue-100">Insurance Verification</p>

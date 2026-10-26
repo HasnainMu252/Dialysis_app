@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Activity, AlertTriangle, CheckCircle2, ClipboardList, Search, Stethoscope, Users } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
-import Loading from '../../components/common/Loading';
+import { SkeletonStats, SkeletonTable } from '../../components/common/Skeleton';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination, { usePagedList } from '../../components/common/Pagination';
 import StatCard from '../../components/ui/StatCard';
@@ -29,7 +29,8 @@ const getCompletedRounds = (checkups = [], patientId, month, year) => {
 export default function DoctorDashboard() {
   const [patients, setPatients] = useState([]);
   const [details, setDetails] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);       // blocks only until the patient list arrives
+  const [detailsLoading, setDetailsLoading] = useState(true); // per-patient round data (background)
   const [search, setSearch] = useState('');
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(currentYear);
@@ -38,15 +39,30 @@ export default function DoctorDashboard() {
 
   const load = async () => {
     setLoading(true);
+    setDetailsLoading(true);
+    let patientList = [];
     try {
       const res = await doctorApi.patients();
-      const patientList = res.data?.data || [];
+      patientList = res.data?.data || [];
       setPatients(patientList);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to load doctor dashboard');
+      setDetailsLoading(false);
+      setLoading(false);
+      return;
+    }
+    // The patient list is enough to render the page — stop blocking now and
+    // fill in per-patient round counts + prescription flags in the background.
+    setLoading(false);
 
+    dialysisPrescriptionApi.activePatientIds()
+      .then((rxRes) => setRxPatientIds(new Set(rxRes.data?.data?.patientIds || [])))
+      .catch(() => setRxPatientIds(new Set()));
+
+    try {
       const detailResults = await Promise.allSettled(
         patientList.map((patient) => doctorApi.patientDetail(patient._id))
       );
-
       const nextDetails = {};
       detailResults.forEach((result, index) => {
         if (result.status === 'fulfilled') {
@@ -54,17 +70,8 @@ export default function DoctorDashboard() {
         }
       });
       setDetails(nextDetails);
-
-      try {
-        const rxRes = await dialysisPrescriptionApi.activePatientIds();
-        setRxPatientIds(new Set(rxRes.data?.data?.patientIds || []));
-      } catch {
-        setRxPatientIds(new Set());
-      }
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to load doctor dashboard');
     } finally {
-      setLoading(false);
+      setDetailsLoading(false);
     }
   };
 
@@ -102,7 +109,15 @@ export default function DoctorDashboard() {
   const pendingPage = usePagedList(pendingRows, '', []);
   const allPage = usePagedList(filteredRows, '', []);
 
-  if (loading) return <Loading label="Loading doctor dashboard..." />;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Doctor Dashboard" subtitle="Monthly SOAP rounds, pending checkups and patient clinical history." />
+        <SkeletonStats count={8} />
+        <SkeletonTable rows={6} cols={6} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -114,6 +129,12 @@ export default function DoctorDashboard() {
       />
 
       <TodayRosterBoxes />
+
+      {detailsLoading && (
+        <p className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <span className="skeleton h-3 w-3 rounded-full" /> Updating round completion for {patients.length} patients…
+        </p>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Patients" value={patients.length} icon={Users} />

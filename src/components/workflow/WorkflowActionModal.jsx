@@ -18,7 +18,7 @@ export default function WorkflowActionModal({ open, title, icon: Icon, onClose, 
           className="my-4 flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b bg-gradient-to-r from-slate-800 to-slate-700 px-5 py-3 text-white">
+          <div className="flex items-center justify-between border-b bg-slate-800 px-5 py-3 text-white">
             <h3 className="flex items-center gap-2 font-bold">
               {Icon ? <Icon size={18} /> : null}
               {title}

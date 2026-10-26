@@ -14,6 +14,16 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import PageHeader from '../../components/common/PageHeader';
 import Loading from '../../components/common/Loading';
 import PatientBioPanel from '../../components/common/PatientBioPanel';
+import VascularAccessCard from '../../components/common/VascularAccessCard';
+import SocialWorkCard from '../../components/common/SocialWorkCard';
+import MedicalBackgroundCard from '../../components/common/MedicalBackgroundCard';
+import VaccinationCard from '../../components/common/VaccinationCard';
+import DietitianAssessmentCard from '../../components/common/DietitianAssessmentCard';
+import EvaluationHistoryCard from '../../components/doctor/EvaluationHistoryCard';
+import PatientOrdersCard from '../../components/common/PatientOrdersCard';
+import { accessTypeLabel } from '../../constants/vascularAccess';
+import { TREATMENT_ACCESS_TYPES } from '../../api/medicationApi';
+import NutritionCard from '../../components/common/NutritionCard';
 import EmptyState from '../../components/common/EmptyState';
 import InsuranceFormPanel from '../../components/common/InsuranceFormPanel';
 import PatientFormPreview from '../../components/common/PatientFormPreview';
@@ -385,36 +395,6 @@ export default function PatientDetails() {
       toast.error(e?.response?.data?.message || 'Delete failed (admin only)');
     }
   };
-  const [cqiDrafts, setCqiDrafts] = useState({});
-
-  const setCqiField = (id, key, value) =>
-    setCqiDrafts((d) => ({ ...d, [id]: { ...(d[id] || {}), [key]: value } }));
-
-  const cqiEditable = (field) => {
-    const role = user?.role;
-    if (role === 'admin') return true;
-    if (role === 'doctor') return field === 'patient';
-    if (role === 'social_worker') return field === 'social';
-    if (role === 'technician') return field === 'dietitian';
-    return false;
-  };
-  const canSaveCqi = ['admin', 'doctor', 'social_worker', 'technician'].includes(user?.role);
-
-  const saveCqi = async (checkup) => {
-    try {
-      const draft = cqiDrafts[checkup._id] || {
-        patient: checkup.cqi?.patient || '',
-        social: checkup.cqi?.social || '',
-        dietitian: checkup.cqi?.dietitian || '',
-      };
-      await doctorApi.updateCheckup(checkup._id, { cqi: draft });
-      toast.success('CQI saved');
-      await load();
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed to save CQI');
-    }
-  };
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -443,7 +423,6 @@ export default function PatientDetails() {
     doctorComments: '',
     socialWorkerComments: '',
     dietitianComments: '',
-    cqi: { patient: '', social: '', dietitian: '' },
     templateUsed: '',
     documents: [],
     documentName: '',
@@ -483,7 +462,6 @@ export default function PatientDetails() {
         doctorComments: roundForm.doctorComments,
         socialWorkerComments: roundForm.socialWorkerComments,
         dietitianComments: roundForm.dietitianComments,
-        cqi: roundForm.cqi,
         templateUsed: roundForm.templateUsed,
       };
       const res = await doctorApi.createCheckup(patient._id, body);
@@ -586,6 +564,49 @@ export default function PatientDetails() {
       ),
     [schedules]
   );
+
+  // Next scheduled dialysis = earliest upcoming active schedule.
+  const nextDialysis = useMemo(() => {
+    const upcoming = [...activeSchedules].sort((a, b) => dateOnly(a.date).localeCompare(dateOnly(b.date)));
+    return upcoming[0] || null;
+  }, [activeSchedules]);
+
+  // Last dialysis = most recent completed session.
+  const lastDialysis = useMemo(() => {
+    const done = [...completed].sort((a, b) =>
+      String(b.completedAt || b.startedAt || b.date || '').localeCompare(String(a.completedAt || a.startedAt || a.date || '')));
+    return done[0] || null;
+  }, [completed]);
+
+  // Access type — prefer the patient's recorded vascular access, then the latest
+  // flow sheet / session note, then the registered medical-history access type.
+  const flowSheetAccess = useMemo(() => {
+    const vaType = accessTypeLabel(patient?.vascularAccess?.accessType);
+    if (vaType) return vaType;
+    const TYPE_LABELS = { permacath: 'Permacath', av_fistula: 'AV Fistula', av_graft: 'AV Graft' };
+    const ordered = [...sessions].sort((a, b) =>
+      String(b.completedAt || b.startedAt || b.createdAt || '').localeCompare(String(a.completedAt || a.startedAt || a.createdAt || '')));
+    for (const s of ordered) {
+      const evalType = s.flowSheet?.accessEvaluation?.type;
+      if (evalType && TYPE_LABELS[evalType]) return TYPE_LABELS[evalType];
+      const notes = [...(s.technicianNotes || [])].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      const withAccess = notes.find((n) => n.accessType);
+      if (withAccess) return withAccess.accessType === 'Other' && withAccess.accessOther ? withAccess.accessOther : withAccess.accessType;
+    }
+    return patient?.medicalHistory?.accessType || '';
+  }, [sessions, patient]);
+
+  // Last date the access was maintained / assessed.
+  const accessLastDate = useMemo(() => {
+    const va = patient?.vascularAccess || {};
+    if (va.lastAssessmentDate) return dateOnly(va.lastAssessmentDate);
+    const ordered = [...sessions].sort((a, b) =>
+      String(b.completedAt || b.startedAt || b.createdAt || '').localeCompare(String(a.completedAt || a.startedAt || a.createdAt || '')));
+    const withEval = ordered.find((s) => s.flowSheet?.accessAssessment?.evaluationTime || s.flowSheet?.accessEvaluation?.type);
+    if (withEval) return dateOnly(withEval.completedAt || withEval.startedAt || withEval.createdAt);
+    if (va.placementDate) return dateOnly(va.placementDate);
+    return '';
+  }, [sessions, patient]);
 
   const doctorCheckupsByMonth = useMemo(() => {
     const grouped = {};
@@ -1003,7 +1024,87 @@ export default function PatientDetails() {
 
         <div className="min-w-0 flex-1 space-y-5">
       {tab === 'overview' && (
-        <PatientBioPanel patient={patient} claims={claims} />
+        <div className="space-y-6">
+          <PatientBioPanel
+            patient={patient}
+            claims={claims}
+            flowSheetAccess={flowSheetAccess}
+            accessLastDate={accessLastDate}
+            nextDialysis={nextDialysis}
+            lastDialysis={lastDialysis}
+          />
+          <VascularAccessCard
+            patient={patient}
+            role={user?.role}
+            onSaved={(updated) =>
+              updated &&
+              setPatient((p) => ({ ...p, vascularAccess: updated.vascularAccess }))
+            }
+          />
+        </div>
+      )}
+
+      {tab === 'social work' && (
+        <section className="card p-5">
+          <SocialWorkCard
+            patient={patient}
+            role={user?.role}
+            onSaved={(u) => u && setPatient((p) => ({ ...p, socialWork: u.socialWork }))}
+          />
+        </section>
+      )}
+
+      {tab === 'medical background' && (
+        <section className="card p-5">
+          <MedicalBackgroundCard
+            patient={patient}
+            role={user?.role}
+            onSaved={(u) => u && setPatient((p) => ({ ...p, medicalBackground: u.medicalBackground }))}
+          />
+        </section>
+      )}
+
+      {tab === 'vaccination' && (
+        <section className="card p-5">
+          <VaccinationCard
+            patient={patient}
+            role={user?.role}
+            currentUserId={user?._id}
+            onSaved={(u) => u && setPatient((p) => ({ ...p, vaccinations: u.vaccinations }))}
+          />
+        </section>
+      )}
+
+      {tab === 'dietitian assessment' && (
+        <section className="card p-5">
+          <DietitianAssessmentCard
+            patient={patient}
+            role={user?.role}
+            onSaved={(u) => u && setPatient((p) => ({ ...p, dietitianAssessment: u.dietitianAssessment }))}
+          />
+        </section>
+      )}
+
+      {tab === 'weekly evaluation' && (
+        <EvaluationHistoryCard patientId={patient._id} kind="weekly" canEdit={allowAddRound} />
+      )}
+
+      {tab === 'monthly round' && (
+        <EvaluationHistoryCard patientId={patient._id} kind="monthly" canEdit={allowAddRound} />
+      )}
+
+      {tab === 'orders' && (
+        <PatientOrdersCard patientId={patient._id} canComplete={user?.role === 'nurse'} />
+      )}
+
+      {tab === 'nutrition' && (
+        <section className="card p-5">
+          <NutritionCard
+            patient={patient}
+            role={user?.role}
+            onSaved={(u) => u && setPatient((p) => ({ ...p, nutrition: u.nutrition }))}
+          />
+        </section>
       )}
 
       {tab === 'insurance form' && (
@@ -1220,7 +1321,11 @@ export default function PatientDetails() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <TextField label="Diagnosis" value={form.medicalHistory.diagnosis} onChange={(v) => setNested('medicalHistory', 'diagnosis', v)} />
                   <TextField label="Dialysis Frequency" value={form.medicalHistory.dialysisFrequency} onChange={(v) => setNested('medicalHistory', 'dialysisFrequency', v)} />
-                  <TextField label="Access Type" value={form.medicalHistory.accessType} onChange={(v) => setNested('medicalHistory', 'accessType', v)} />
+                  <div>
+                    <label className="label">Access Type</label>
+                    <div className="input flex items-center bg-slate-50 text-slate-600">{accessTypeLabel(patient?.vascularAccess?.accessType) || form.medicalHistory.accessType || '—'}</div>
+                    <p className="mt-1 text-xs text-slate-400">Edit on Overview → Vascular Access (single source).</p>
+                  </div>
                   <TextField label="Allergies" value={form.medicalHistory.allergies} onChange={(v) => setNested('medicalHistory', 'allergies', v)} />
                   <TextField label="Post Weight" value={form.medicalHistory.postWeight} onChange={(v) => setNested('medicalHistory', 'postWeight', v)} />
                   <TextField label="Height" value={form.medicalHistory.height} onChange={(v) => setNested('medicalHistory', 'height', v)} />
@@ -1304,19 +1409,19 @@ export default function PatientDetails() {
       )}
 
       {tab === 'schedules' && (
-        <section className="space-y-2">
-          {activeSchedules.map((item) => (
-            <div className="card p-4 text-sm" key={item._id || item.id || item.code}>
-              <div className="flex justify-between gap-3">
-                <b>{item.code}</b>
-                <StatusBadge status={item.status} />
+        <section>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {activeSchedules.map((item) => (
+              <div className="card p-4 text-sm" key={item._id || item.id || item.code}>
+                <div className="flex items-center justify-between gap-3">
+                  <b>{item.code}</b>
+                  <StatusBadge status={item.status} />
+                </div>
+                <p className="mt-2 font-semibold text-slate-700">{dateOnly(item.date)}</p>
+                <p className="text-slate-500">{item.startTime}-{item.endTime} • Station {item.chair?.code || item.chairCode || '-'}</p>
               </div>
-              <p>
-                {dateOnly(item.date)} • {item.startTime}-{item.endTime} • Station{' '}
-                {item.chair?.code || item.chairCode}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
 
           {!activeSchedules.length && (
             <EmptyState message="No current/upcoming schedules for this patient" />
@@ -1331,7 +1436,7 @@ export default function PatientDetails() {
             <div className="grid gap-3 text-sm md:grid-cols-2">
               <p><b>Diagnosis:</b> {patient.medicalHistory.diagnosis || '-'}</p>
               <p><b>Dialysis Frequency:</b> {patient.medicalHistory.dialysisFrequency || '-'}</p>
-              <p><b>Access Type:</b> {patient.medicalHistory.accessType || '-'}</p>
+              <p><b>Access Type:</b> {accessTypeLabel(patient.vascularAccess?.accessType) || patient.medicalHistory.accessType || '-'}</p>
               <p><b>Diabetic:</b> {patient.medicalHistory.diabetic || '-'}</p>
               <p><b>Height:</b> {patient.medicalHistory.height || '-'}</p>
               <p><b>Post Weight:</b> {patient.medicalHistory.postWeight || '-'}</p>
@@ -1353,10 +1458,11 @@ export default function PatientDetails() {
 
       {tab === 'sessions' && (
         <section className="space-y-2">
-          {sessions.map((item) => (
+          {/* Only completed sessions with details — scheduled (past-incomplete or future) are hidden. */}
+          {completed.map((item) => (
             <SessionHistoryCard session={item} key={item._id} />
           ))}
-          {!sessions.length && <EmptyState message="No sessions yet" />}
+          {!completed.length && <EmptyState message="No completed sessions yet" />}
         </section>
       )}
 
@@ -1519,34 +1625,15 @@ export default function PatientDetails() {
         </section>
       )}
 
-      {tab === 'cqi comments' && (
-        <section className="card p-5">
-          <h2 className="mb-1 text-lg font-bold">CQI Comments</h2>
-          <p className="mb-4 text-sm text-slate-500">Continuous quality improvement notes from nurse, technician and social worker. Each role keeps their own comment.</p>
-          <CqiPanel patientId={id} defaultPhase="general" />
-        </section>
-      )}
-
       {tab === 'cqi' && (
-        <section className="card space-y-4 p-5">
-          <div>
-            <h2 className="text-lg font-bold">CQI Tracking</h2>
-            <p className="text-sm text-slate-500">Patient, Social and Dietitian CQI notes for each of this patient's rounds.</p>
-          </div>
-          {!doctorCheckups.length && <EmptyState message="No rounds recorded yet" />}
-          {doctorCheckups.map((checkup) => (
-            <div key={checkup._id} className="rounded-2xl border border-slate-200 p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <b className="text-slate-900">Round {checkup.roundNumber} <span className="text-xs font-normal text-slate-500">• {checkup.month}/{checkup.year}</span></b>
-                {canSaveCqi && <button className="btn-primary py-1.5 text-xs" onClick={() => saveCqi(checkup)}>Save CQI</button>}
-              </div>
-              <div className="grid gap-3 lg:grid-cols-3">
-                <div><label className="label">Patient / Doctor CQI</label><textarea className="input min-h-20 disabled:bg-slate-100" disabled={!cqiEditable('patient')} value={cqiDrafts[checkup._id]?.patient ?? (checkup.cqi?.patient || '')} onChange={(e) => setCqiField(checkup._id, 'patient', e.target.value)} /></div>
-                <div><label className="label">Social CQI</label><textarea className="input min-h-20 disabled:bg-slate-100" disabled={!cqiEditable('social')} value={cqiDrafts[checkup._id]?.social ?? (checkup.cqi?.social || '')} onChange={(e) => setCqiField(checkup._id, 'social', e.target.value)} /></div>
-                <div><label className="label">Dietitian / Technical CQI</label><textarea className="input min-h-20 disabled:bg-slate-100" disabled={!cqiEditable('dietitian')} value={cqiDrafts[checkup._id]?.dietitian ?? (checkup.cqi?.dietitian || '')} onChange={(e) => setCqiField(checkup._id, 'dietitian', e.target.value)} /></div>
-              </div>
-            </div>
-          ))}
+        <section className="card p-5">
+          <h2 className="mb-1 text-lg font-bold">CQI</h2>
+          <p className="mb-4 text-sm text-slate-500">
+            One continuous-quality log for this patient. Doctor, nurse, technician,
+            social worker and dietitian entries are saved with role, date/time and
+            session, and reviewed monthly by the DON.
+          </p>
+          <CqiPanel patientId={id} defaultPhase="general" />
         </section>
       )}
 
@@ -1596,7 +1683,6 @@ export default function PatientDetails() {
                   doctorComments: roundForm.doctorComments,
                   socialWorkerComments: roundForm.socialWorkerComments,
                   dietitianComments: roundForm.dietitianComments,
-                  cqi: roundForm.cqi,
                   templateUsed: roundForm.templateUsed,
                 }}
                 onChange={(v) => setRoundForm((prev) => ({ ...prev, ...v }))}

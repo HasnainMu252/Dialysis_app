@@ -88,7 +88,7 @@ export default function DialysisPrescriptionViewer({ patientId, buttonClassName 
         <Portal>
           <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setOpen(false)}>
             <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b bg-gradient-to-r from-sky-700 to-cyan-700 px-5 py-3 text-white">
+              <div className="flex items-center justify-between border-b bg-[#087E8B] px-5 py-3 text-white">
                 <h3 className="flex items-center gap-2 font-bold"><Stethoscope size={18} /> Hemodialysis Order</h3>
                 <div className="flex items-center gap-3">
                   <button type="button" onClick={() => setShowHistory((v) => !v)} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 text-xs font-bold hover:bg-white/25">

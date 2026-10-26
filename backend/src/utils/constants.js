@@ -8,6 +8,9 @@ export const ROLES = Object.freeze({
   SOCIAL_WORKER: 'social_worker',
   PATIENT: 'patient',
   DOCTOR: 'doctor',
+  DIETITIAN: 'dietitian',
+  DON: 'don', // Director of Nursing
+  BIOMED: 'biomed',
 });
 
 export const ALL_STAFF_ROLES = Object.freeze(

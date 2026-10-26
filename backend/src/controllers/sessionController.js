@@ -3,6 +3,8 @@ import { notifyStationStatus } from '../services/notificationService.js';
 import DialysisSession from '../models/DialysisSession.js';
 import QueueEntry from '../models/QueueEntry.js';
 import Chair from '../models/Chair.js';
+import Patient from '../models/Patient.js';
+import { createClaimForSession } from '../services/billingAutoService.js';
 import { ApiError } from '../utils/apiError.js';
 import { buildSessionCode, slotFor } from '../utils/sessionCode.js';
 import { writeAudit } from '../utils/audit.js';
@@ -23,17 +25,19 @@ export const listSessions = asyncHandler(async (req, res) => {
   // These would otherwise render as "Unknown patient" in the treatment flow.
   data = data.filter((s) => s.patient);
 
-  // App-wide schedule expiry: a session that is still 'scheduled' but whose
-  // schedule end time has passed (patient never checked in) is treated as
-  // expired and hidden from the treatment/workflow list. The underlying
-  // schedule still appears in the Schedule list (flagged "Expired").
+  // App-wide schedule expiry: a session still 'scheduled' whose schedule ended on
+  // a PREVIOUS day (patient never checked in) is hidden from the treatment flow.
+  // Today's schedules stay visible all day even after their time slot passes, so
+  // the morning shift doesn't disappear in the afternoon. The underlying schedule
+  // still appears in the Schedule list (flagged "Expired").
   // Pass ?includeExpired=1 to opt out of this filtering.
   if (!req.query.includeExpired) {
-    const now = new Date();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     data = data.filter((s) => {
       if (s.status !== 'scheduled') return true;
       const endAt = s.schedule?.endAt;
-      return !(endAt && new Date(endAt) < now);
+      return !(endAt && new Date(endAt) < startOfToday);
     });
   }
 
@@ -68,6 +72,14 @@ export const listSessions = asyncHandler(async (req, res) => {
     count: normalised.length,
     data: normalised,
   });
+});
+
+/** GET /sessions/:id — single session with full populate (billing drill-down). */
+export const getSession = asyncHandler(async (req, res) => {
+  const session = await DialysisSession.findById(req.params.id)
+    .populate('patient chair schedule checkedInBy startedBy completedBy');
+  if (!session) throw new ApiError(404, 'Session not found');
+  res.json({ success: true, data: session });
 });
 
 export const checkIn = asyncHandler(async (req, res) => {
@@ -186,6 +198,61 @@ export const addVitals = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * PATCH /sessions/:id/flow-sheet
+ * Technician/nurse flow sheet: machine checks, solution mixing, access list,
+ * access assessment. Upserts the single embedded flowSheet object.
+ */
+export const updateFlowSheet = asyncHandler(async (req, res) => {
+  const session = await DialysisSession.findById(req.params.id);
+  if (!session) throw new ApiError(404, 'Session not found');
+
+  const fs = session.flowSheet || {};
+  const { machineCheck, solutionMixing, accessList, accessAssessment, accessEvaluation } = req.body || {};
+
+  session.flowSheet = {
+    machineCheck: machineCheck ?? fs.machineCheck ?? {},
+    solutionMixing: solutionMixing ?? fs.solutionMixing ?? {},
+    accessList: Array.isArray(accessList) ? accessList : fs.accessList || [],
+    accessAssessment: accessAssessment ?? fs.accessAssessment ?? {},
+    accessEvaluation: accessEvaluation ?? fs.accessEvaluation ?? {},
+    updatedBy: req.user?._id,
+    updatedByName: req.user?.name,
+    updatedByRole: req.user?.role,
+    updatedAt: new Date(),
+  };
+
+  await session.save();
+
+  // Sync the flow-sheet access into the patient's single vascular-access record,
+  // so what's entered on the flow sheet shows in the patient bio and to every
+  // role. Access type comes from the structured evaluation or the first access
+  // line; placement/site from the access line; last-maintained = now.
+  const EVAL_TO_ACCESS = { av_fistula: 'Fistula', av_graft: 'AV Graft', permacath: 'Tunnel catheter' };
+  const line = (session.flowSheet.accessList || [])[0] || {};
+  const evalType = session.flowSheet.accessEvaluation?.type;
+  const resolvedType = EVAL_TO_ACCESS[evalType] || (line.type ? String(line.type).trim() : '');
+  if (session.patient && resolvedType) {
+    const set = {
+      'vascularAccess.accessType': resolvedType,
+      'vascularAccess.lastAssessmentDate': new Date(),
+      'vascularAccess.updatedBy': req.user?._id,
+      'vascularAccess.updatedByName': req.user?.name,
+      'vascularAccess.updatedAt': new Date(),
+    };
+    if (line.site) set['vascularAccess.location'] = line.site;
+    if (line.placementDate) set['vascularAccess.placementDate'] = line.placementDate;
+    await Patient.findByIdAndUpdate(session.patient, { $set: set });
+  }
+
+  await writeAudit({ user: req.user, action: 'session.flow_sheet.update', entity: 'DialysisSession', entityId: session._id });
+
+  const data = await DialysisSession.findById(session._id)
+    .populate('patient chair schedule checkedInBy startedBy completedBy');
+
+  res.json({ success: true, data });
+});
+
 export const addSoap = asyncHandler(async (req, res) => {
   const data = await DialysisSession.findByIdAndUpdate(
     req.params.id,
@@ -285,6 +352,9 @@ export const completeSession = asyncHandler(async (req, res) => {
     { status: 'completed' }
   );
 
+  // Dialysis done → bill immediately (procedure + drugs + IVs + radiology).
+  try { await createClaimForSession(session._id); } catch (e) { /* non-fatal */ }
+
   await writeAudit({
     user: req.user,
     action: 'session.complete',
@@ -355,6 +425,24 @@ export const addTechnicianNote = asyncHandler(async (req, res) => {
   });
 
   await session.save();
+
+  // Access recorded on the flow sheet updates the patient's single access
+  // record (type + last-maintained date), so the bio stays the source of truth.
+  const trimmedAccess = String(accessType).trim();
+  if (session.patient && trimmedAccess && trimmedAccess !== 'Not applicable') {
+    const resolved = trimmedAccess === 'Other'
+      ? (String(req.body?.accessOther || '').trim() || 'Other')
+      : trimmedAccess;
+    await Patient.findByIdAndUpdate(session.patient, {
+      $set: {
+        'vascularAccess.accessType': resolved,
+        'vascularAccess.lastAssessmentDate': new Date(),
+        'vascularAccess.updatedBy': req.user?._id,
+        'vascularAccess.updatedByName': req.user?.name,
+        'vascularAccess.updatedAt': new Date(),
+      },
+    });
+  }
 
   await writeAudit({
     user: req.user,
@@ -444,6 +532,9 @@ export const finalizeSession = asyncHandler(async (req, res) => {
     { session: session._id },
     { status: 'completed' }
   );
+
+  // Dialysis done → bill immediately.
+  try { await createClaimForSession(session._id); } catch (e) { /* non-fatal */ }
 
   await writeAudit({
     user: req.user,

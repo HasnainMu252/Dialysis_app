@@ -55,15 +55,6 @@ export default function RoundDetailModal({ round, onClose }) {
             </div>
           </div>
 
-          <div>
-            <h4 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-blue-800">CQI</h4>
-            <div className="space-y-1 text-sm">
-              <p><b>Patient:</b> {val(round.cqi?.patient)}</p>
-              <p><b>Social:</b> {val(round.cqi?.social)}</p>
-              <p><b>Dietitian:</b> {val(round.cqi?.dietitian)}</p>
-            </div>
-          </div>
-
           {!!(round.documents?.length) && (
             <div>
               <h4 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-blue-800">Documents ({round.documents.length})</h4>

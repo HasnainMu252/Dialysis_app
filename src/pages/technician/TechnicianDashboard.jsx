@@ -304,7 +304,7 @@ export default function TechnicianDashboard() {
                     </p>
                   </div>
 
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-100 transition group-hover:scale-105">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#087E8B] text-white shadow-md shadow-blue-100 transition group-hover:scale-105">
                     <Icon size={20} />
                   </div>
                 </div>
@@ -411,7 +411,7 @@ export default function TechnicianDashboard() {
               >
                 <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
                   <div className="flex min-w-0 items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 font-black text-white shadow-md shadow-blue-100">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#087E8B] font-black text-white shadow-md shadow-blue-100">
                       {formatPatientName(schedule)
                         .charAt(0)
                         .toUpperCase()}
@@ -496,11 +496,11 @@ function DashboardStatCard({
           </p>
 
           <div className="mt-4 h-2 w-full max-w-[130px] overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" />
+            <div className="h-full w-2/3 rounded-full bg-[#123B5D]" />
           </div>
         </div>
 
-        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-200 transition group-hover:rotate-3 group-hover:scale-105">
+        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#087E8B] text-white shadow-lg shadow-blue-200 transition group-hover:rotate-3 group-hover:scale-105">
           <Icon size={25} strokeWidth={2} />
         </div>
       </div>
