@@ -665,8 +665,8 @@ return (
               </button>
             </form>
 
-            {/* DEMO ACCOUNTS - ALL 12 RESTORED */}
-            {import.meta.env.DEV && (
+            {/* DEMO ACCOUNTS - ALL 12 RESTORED (shown in all builds) */}
+            {true && (
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
 
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
